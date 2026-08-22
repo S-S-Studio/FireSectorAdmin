@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#b42318">
+<meta name="description" content="FireSector Admin">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="icon" href="assets/icon-192.png">
@@ -11,52 +12,193 @@
 <title>FireSector Admin</title>
 </head>
 <body>
-<div id="loading" class="screen center"><div class="card"><div class="logo">FS</div><h1>FireSector Admin</h1><p>Loading…</p></div></div>
+
+<div id="loading" class="screen center">
+  <div class="card auth">
+    <div class="logo">FS</div>
+    <h1>FireSector Admin</h1>
+    <p class="muted">Starting secure admin portal…</p>
+  </div>
+</div>
+
+<div id="startupError" class="screen center hidden">
+  <div class="card auth">
+    <div class="logo warn">!</div>
+    <h2>Unable to start FireSector Admin</h2>
+    <p class="muted">
+      The app could not initialise correctly. Check your internet connection and try again.
+    </p>
+    <div id="startupErrorText" class="error hidden"></div>
+    <button id="retryStartup" type="button">Retry</button>
+  </div>
+</div>
 
 <div id="login" class="screen center hidden">
   <form id="loginForm" class="card auth">
-    <div class="brand"><div class="logo">FS</div><div><h1>FireSector Admin</h1><p>Secure administration portal</p></div></div>
-    <label>Email<input id="email" type="email" autocomplete="username" required></label>
-    <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+    <div class="brand">
+      <div class="logo">FS</div>
+      <div>
+        <h1>FireSector Admin</h1>
+        <p class="muted">Secure administration portal</p>
+      </div>
+    </div>
+
+    <label>
+      Email
+      <input id="email" type="email" autocomplete="username" required>
+    </label>
+
+    <label>
+      Password
+      <div class="password-wrap">
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button
+          id="togglePassword"
+          class="password-toggle"
+          type="button"
+          aria-label="Show password"
+          aria-pressed="false"
+        >Show</button>
+      </div>
+    </label>
+
     <div id="error" class="error hidden"></div>
+
     <button id="loginBtn" type="submit">Sign in</button>
   </form>
 </div>
 
 <div id="denied" class="screen center hidden">
-  <div class="card auth"><div class="logo warn">!</div><h2>Access not authorised</h2>
-  <p>Your account is not registered as an active FireSector administrator.</p>
-  <button id="deniedOut" class="secondary">Sign out</button></div>
+  <div class="card auth">
+    <div class="logo warn">!</div>
+    <h2>Access not authorised</h2>
+    <p class="muted">
+      Your account is valid, but it is not registered as an active FireSector administrator.
+    </p>
+    <button id="deniedOut" class="secondary">Back to login</button>
+  </div>
 </div>
 
 <div id="dashboard" class="screen hidden">
   <header>
-    <div class="brand compact"><div class="logo small">FS</div><strong>FireSector Admin</strong><span id="role" class="badge">Admin</span></div>
-    <div class="actions"><button id="installBtn" class="secondary hidden">Install App</button><button id="signOut" class="ghost">Sign out</button></div>
+    <div class="brand compact">
+      <div class="logo small">FS</div>
+      <strong>FireSector Admin</strong>
+      <span id="role" class="badge">Admin</span>
+    </div>
+
+    <div class="actions">
+      <button id="installBtn" class="secondary hidden">Install App</button>
+      <button id="signOut" class="ghost">Sign out</button>
+    </div>
   </header>
+
   <div class="shell">
     <nav>
-      <button class="nav active">⌂ <span>Dashboard</span></button>
-      <button class="nav" disabled>⌖ <span>Markers</span></button>
-      <button class="nav" disabled># <span>Temp Access</span></button>
-      <button class="nav" disabled>◫ <span>Districts</span></button>
+      <button class="nav active">
+        <span class="navSymbol">⌂</span>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav" disabled>
+        <span class="navSymbol">#</span>
+        <span>Temporary Access</span>
+      </button>
+      <button class="nav" disabled>
+        <span class="navSymbol">⌖</span>
+        <span>Map Data</span>
+      </button>
+      <button class="nav" disabled>
+        <span class="navSymbol">◫</span>
+        <span>Districts</span>
+      </button>
     </nav>
+
     <main>
       <div class="headrow">
-        <div><small>FIRESECTOR ADMIN</small><h2>Dashboard</h2><p id="welcome"></p></div>
-        <label class="district">Current district<select id="districtSelect"></select></label>
+        <div>
+          <small>FIRESECTOR ADMIN</small>
+          <h2>Dashboard</h2>
+          <p id="welcome" class="muted"></p>
+        </div>
+
+        <label class="district">
+          Current district
+          <select id="districtSelect"></select>
+        </label>
       </div>
-      <div id="offline" class="warning hidden">You are offline. Existing screen data remains visible, but online admin actions are unavailable.</div>
-      <section class="hero"><div>● <span id="conn">Connected to FireSector backend</span></div><h3 id="districtTitle">Petrusburg District</h3><p>Prototype operational area</p></section>
-      <section class="grid">
-        <article><b>⌖</b><h3>Markers</h3><p>Add gates, water points and landmarks from coordinates, map selection or current location.</p><button class="secondary" disabled>Coming next</button></article>
-        <article><b>#</b><h3>Temporary Access</h3><p>Create time-limited district or radius access codes and share them via WhatsApp.</p><button class="secondary" disabled>Coming next</button></article>
-        <article><b>◫</b><h3>District Data</h3><p>View district context, sync status and future area configuration.</p><button class="secondary" disabled>Coming later</button></article>
+
+      <div id="offline" class="warning hidden">
+        You are offline. Existing screen data remains visible, but online admin actions are unavailable.
+      </div>
+
+      <section class="primary-action">
+        <div class="primary-copy">
+          <div class="primary-kicker">PRIMARY ACTION</div>
+          <h3>Temporary Access</h3>
+        </div>
+
+        <div class="primary-cta">
+          <button id="createAccessBtn" class="primary-btn" disabled>
+            Create Temporary Access
+          </button>
+        </div>
       </section>
-      <section class="info"><div><span>Signed in as</span><strong id="adminName">—</strong></div><div><span>Account</span><strong id="adminEmail">—</strong></div><div><span>District access</span><strong id="districtCount">—</strong></div></section>
+
+      <section class="district-strip">
+        <div>
+          <span class="status-dot"></span>
+          <span id="conn">Connected to FireSector backend</span>
+        </div>
+        <div>
+          <span class="label">Current district</span>
+          <strong id="districtTitle">Petrusburg District</strong>
+        </div>
+      </section>
+
+      <section class="secondary-heading">
+        <div>
+          <h3>Administration</h3>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article>
+          <div class="featureIcon red">⌖</div>
+          <h3>Map Data</h3>
+          <button class="secondary" disabled>Open</button>
+        </article>
+
+        <article>
+          <div class="featureIcon amber">◫</div>
+          <h3>Districts</h3>
+          <button class="secondary" disabled>Open</button>
+        </article>
+
+        <article>
+          <div class="featureIcon blue">◎</div>
+          <h3>System Status</h3>
+          <button class="secondary" disabled>Open</button>
+        </article>
+      </section>
+
+      <section class="info">
+        <div>
+          <span>Signed in as</span>
+          <strong id="adminName">—</strong>
+        </div>
+        <div>
+          <span>Account</span>
+          <strong id="adminEmail">—</strong>
+        </div>
+        <div>
+          <span>District access</span>
+          <strong id="districtCount">—</strong>
+        </div>
+      </section>
     </main>
   </div>
 </div>
-<script type="module" src="app.js"></script>
+
+<script src="app.js"></script>
 </body>
 </html>

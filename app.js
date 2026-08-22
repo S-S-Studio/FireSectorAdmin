@@ -1,39 +1,308 @@
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
-const supabase=createClient('https://gekvveymihsskkuxgxve.supabase.co','sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe',{auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:false}});
+const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
+const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
+const STARTUP_TIMEOUT_MS=8000;
+const REQUEST_TIMEOUT_MS=10000;
+
 const $=id=>document.getElementById(id);
-const screens=['loading','login','denied','dashboard'];
-function show(id){screens.forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
-function err(t){$('error').textContent=t;$('error').classList.remove('hidden')}
+const screens=['loading','startupError','login','denied','dashboard'];
+
+let accessToken=null;
+let currentUser=null;
+let installPrompt=null;
+
+function show(id){
+  screens.forEach(x=>$(x).classList.add('hidden'));
+  $(id).classList.remove('hidden');
+}
+
+function showLoginError(message){
+  $('error').textContent=message;
+  $('error').classList.remove('hidden');
+}
+
+function clearLoginError(){
+  $('error').textContent='';
+  $('error').classList.add('hidden');
+}
+
+function withTimeout(promise,ms,message){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error(message)),ms))
+  ]);
+}
+
+async function apiFetch(path,options={}){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),REQUEST_TIMEOUT_MS);
+
+  const headers={
+    apikey:SUPABASE_KEY,
+    ...options.headers
+  };
+
+  if(accessToken){
+    headers.Authorization=`Bearer ${accessToken}`;
+  }
+
+  try{
+    const response=await fetch(`${SUPABASE_URL}${path}`,{
+      ...options,
+      headers,
+      signal:controller.signal
+    });
+
+    const text=await response.text();
+    let body=null;
+    try{body=text?JSON.parse(text):null}catch(_){body=text}
+
+    if(!response.ok){
+      const message=
+        body?.msg||
+        body?.message||
+        body?.error_description||
+        body?.error||
+        `Request failed (${response.status})`;
+      throw new Error(message);
+    }
+
+    return body;
+  }finally{
+    clearTimeout(timeout);
+  }
+}
+
+async function signIn(email,password){
+  const body=await apiFetch('/auth/v1/token?grant_type=password',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+
+  if(!body?.access_token||!body?.user){
+    throw new Error('Invalid login response.');
+  }
+
+  accessToken=body.access_token;
+  currentUser=body.user;
+  return body.user;
+}
+
+function clearSession(){
+  accessToken=null;
+  currentUser=null;
+}
+
+async function restSelect(table,query){
+  return apiFetch(`/rest/v1/${table}?${query}`,{
+    method:'GET',
+    headers:{
+      Accept:'application/json'
+    }
+  });
+}
+
+async function loadAdminContext(user){
+  const admins=await restSelect(
+    'admin_users',
+    `select=id,display_name,is_super_admin,is_active&id=eq.${encodeURIComponent(user.id)}`
+  );
+
+  const admin=Array.isArray(admins)?admins[0]:null;
+
+  if(!admin||!admin.is_active){
+    show('denied');
+    return;
+  }
+
+  const districts=await restSelect(
+    'districts',
+    'select=id,code,name,description,is_active&is_active=eq.true&order=name.asc'
+  );
+
+  populateDashboard(user,admin,Array.isArray(districts)?districts:[]);
+  show('dashboard');
+}
+
+function populateDashboard(user,admin,districts){
+  $('adminName').textContent=admin.display_name||'FireSector Admin';
+  $('adminEmail').textContent=user.email||'—';
+  $('role').textContent=admin.is_super_admin?'Super Admin':'Admin';
+  $('welcome').textContent=`Welcome, ${admin.display_name||user.email||'Administrator'}.`;
+  $('districtCount').textContent=String(districts.length);
+
+  const sel=$('districtSelect');
+  sel.innerHTML='';
+
+  if(districts.length===0){
+    const o=document.createElement('option');
+    o.value='';
+    o.textContent='No districts assigned';
+    sel.appendChild(o);
+    sel.disabled=true;
+    $('districtTitle').textContent='No district available';
+    return;
+  }
+
+  sel.disabled=false;
+
+  districts.forEach(d=>{
+    const o=document.createElement('option');
+    o.value=d.id;
+    o.textContent=d.name;
+    o.dataset.code=d.code||'';
+    sel.appendChild(o);
+  });
+
+  const i=districts.findIndex(d=>d.code==='PETRUSBURG');
+  if(i>=0)sel.selectedIndex=i;
+
+  updateDistrictTitle();
+}
+
+function updateDistrictTitle(){
+  const sel=$('districtSelect');
+  $('districtTitle').textContent=
+    sel.options[sel.selectedIndex]?.textContent||'District';
+}
+
+$('districtSelect').addEventListener('change',updateDistrictTitle);
 
 const togglePassword=$('togglePassword');
 togglePassword.addEventListener('click',()=>{
-  const passwordInput=$('password');
-  const showing=passwordInput.type==='text';
-  passwordInput.type=showing?'password':'text';
+  const input=$('password');
+  const showing=input.type==='text';
+  input.type=showing?'password':'text';
   togglePassword.textContent=showing?'Show':'Hide';
-  togglePassword.setAttribute('aria-label',showing?'Show password':'Hide password');
   togglePassword.setAttribute('aria-pressed',String(!showing));
-  passwordInput.focus({preventScroll:true});
-  const length=passwordInput.value.length;
-  try{passwordInput.setSelectionRange(length,length)}catch(_){}
+  togglePassword.setAttribute('aria-label',showing?'Show password':'Hide password');
+  input.focus({preventScroll:true});
+  const len=input.value.length;
+  try{input.setSelectionRange(len,len)}catch(_){}
 });
-async function load(user){
- const {data:admin,error:aerr}=await supabase.from('admin_users').select('id,display_name,is_super_admin,is_active').eq('id',user.id).maybeSingle();
- if(aerr) throw new Error('Could not verify administrator access.');
- if(!admin||!admin.is_active){show('denied');return}
- const {data:districts,error:derr}=await supabase.from('districts').select('id,code,name,description,is_active').eq('is_active',true).order('name');
- if(derr) throw new Error('Could not load district access.');
- $('adminName').textContent=admin.display_name||'FireSector Admin';$('adminEmail').textContent=user.email||'—';$('role').textContent=admin.is_super_admin?'Super Admin':'Admin';$('welcome').textContent=`Welcome, ${admin.display_name||user.email||'Administrator'}.`;$('districtCount').textContent=String((districts||[]).length);
- const sel=$('districtSelect');sel.innerHTML='';
- (districts||[]).forEach(d=>{const o=document.createElement('option');o.value=d.id;o.textContent=d.name;o.dataset.code=d.code;sel.appendChild(o)});
- const i=(districts||[]).findIndex(d=>d.code==='PETRUSBURG');if(i>=0)sel.selectedIndex=i;
- $('districtTitle').textContent=sel.options[sel.selectedIndex]?.textContent||'No district available';show('dashboard')
+
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  clearLoginError();
+
+  const btn=$('loginBtn');
+  btn.disabled=true;
+  btn.textContent='Signing in…';
+
+  try{
+    clearSession();
+
+    const user=await signIn(
+      $('email').value.trim(),
+      $('password').value
+    );
+
+    await loadAdminContext(user);
+    $('password').value='';
+  }catch(error){
+    clearSession();
+
+    const message=String(error?.message||'').toLowerCase();
+
+    if(
+      message.includes('invalid login')||
+      message.includes('invalid credentials')||
+      message.includes('email or password')
+    ){
+      showLoginError('Invalid email or password.');
+    }else{
+      showLoginError(error.message||'Could not connect to FireSector.');
+    }
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Sign in';
+  }
+});
+
+function lockToLogin(){
+  clearSession();
+  $('password').value='';
+  show('login');
 }
-$('districtSelect').addEventListener('change',e=>$('districtTitle').textContent=e.target.options[e.target.selectedIndex]?.textContent||'District');
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('error').classList.add('hidden');$('loginBtn').disabled=true;$('loginBtn').textContent='Signing in…';const {data,error}=await supabase.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){err('Invalid email or password.');$('loginBtn').disabled=false;$('loginBtn').textContent='Sign in';return}try{await load(data.user)}catch(x){await supabase.auth.signOut();show('login');err(x.message)}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Sign in'}});
-async function out(){await supabase.auth.signOut();show('login')} $('signOut').onclick=out;$('deniedOut').onclick=out;
-async function startLocked(){show('loading');try{await supabase.auth.signOut({scope:'local'})}catch(e){console.warn('Local sign-out cleanup failed:',e)}show('login')}
-let installPrompt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('installBtn').classList.remove('hidden')});$('installBtn').onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installBtn').classList.add('hidden')};
-function online(){const off=!navigator.onLine;$('offline').classList.toggle('hidden',!off);$('conn').textContent=off?'Offline — using current screen data':'Connected to FireSector backend'}window.addEventListener('online',online);window.addEventListener('offline',online);online();
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(console.warn));
-startLocked();
+
+$('signOut').addEventListener('click',lockToLogin);
+$('deniedOut').addEventListener('click',lockToLogin);
+
+async function startup(){
+  show('loading');
+  clearSession();
+
+  try{
+    await withTimeout(
+      fetch(`${SUPABASE_URL}/auth/v1/health`,{
+        method:'GET',
+        headers:{apikey:SUPABASE_KEY},
+        cache:'no-store'
+      }).then(r=>{
+        if(!r.ok)throw new Error(`Backend health check failed (${r.status}).`);
+      }),
+      STARTUP_TIMEOUT_MS,
+      'Connection timed out.'
+    );
+
+    show('login');
+  }catch(error){
+    $('startupErrorText').textContent=error.message||'Unable to reach FireSector backend.';
+    $('startupErrorText').classList.remove('hidden');
+    show('startupError');
+  }
+}
+
+$('retryStartup').addEventListener('click',startup);
+
+function updateOnlineState(){
+  const offline=!navigator.onLine;
+  $('offline').classList.toggle('hidden',!offline);
+  $('conn').textContent=offline
+    ?'Offline — using current screen data'
+    :'Connected to FireSector backend';
+}
+
+window.addEventListener('online',updateOnlineState);
+window.addEventListener('offline',updateOnlineState);
+updateOnlineState();
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  installPrompt=e;
+  $('installBtn').classList.remove('hidden');
+});
+
+$('installBtn').addEventListener('click',async()=>{
+  if(!installPrompt)return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt=null;
+  $('installBtn').classList.add('hidden');
+});
+
+window.addEventListener('appinstalled',()=>{
+  installPrompt=null;
+  $('installBtn').classList.add('hidden');
+});
+
+if('serviceWorker'in navigator){
+  window.addEventListener('load',async()=>{
+    try{
+      const reg=await navigator.serviceWorker.register('./service-worker.js',{
+        updateViaCache:'none'
+      });
+      await reg.update();
+    }catch(error){
+      console.warn('Service worker registration failed:',error);
+    }
+  });
+}
+
+window.addEventListener('pageshow',event=>{
+  if(event.persisted){
+    lockToLogin();
+  }
+});
+
+startup();
