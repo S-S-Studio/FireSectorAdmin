@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#b42318">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<title>FireSector Admin</title>
+</head>
+<body>
+<div id="loading" class="screen center"><div class="card"><div class="logo">FS</div><h1>FireSector Admin</h1><p>Loading…</p></div></div>
+
+<div id="login" class="screen center hidden">
+  <form id="loginForm" class="card auth">
+    <div class="brand"><div class="logo">FS</div><div><h1>FireSector Admin</h1><p>Secure administration portal</p></div></div>
+    <label>Email<input id="email" type="email" autocomplete="username" required></label>
+    <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+    <div id="error" class="error hidden"></div>
+    <button id="loginBtn" type="submit">Sign in</button>
+  </form>
+</div>
+
+<div id="denied" class="screen center hidden">
+  <div class="card auth"><div class="logo warn">!</div><h2>Access not authorised</h2>
+  <p>Your account is not registered as an active FireSector administrator.</p>
+  <button id="deniedOut" class="secondary">Sign out</button></div>
+</div>
+
+<div id="dashboard" class="screen hidden">
+  <header>
+    <div class="brand compact"><div class="logo small">FS</div><strong>FireSector Admin</strong><span id="role" class="badge">Admin</span></div>
+    <div class="actions"><button id="installBtn" class="secondary hidden">Install App</button><button id="signOut" class="ghost">Sign out</button></div>
+  </header>
+  <div class="shell">
+    <nav>
+      <button class="nav active">⌂ <span>Dashboard</span></button>
+      <button class="nav" disabled>⌖ <span>Markers</span></button>
+      <button class="nav" disabled># <span>Temp Access</span></button>
+      <button class="nav" disabled>◫ <span>Districts</span></button>
+    </nav>
+    <main>
+      <div class="headrow">
+        <div><small>FIRESECTOR ADMIN</small><h2>Dashboard</h2><p id="welcome"></p></div>
+        <label class="district">Current district<select id="districtSelect"></select></label>
+      </div>
+      <div id="offline" class="warning hidden">You are offline. Existing screen data remains visible, but online admin actions are unavailable.</div>
+      <section class="hero"><div>● <span id="conn">Connected to FireSector backend</span></div><h3 id="districtTitle">Petrusburg District</h3><p>Prototype operational area</p></section>
+      <section class="grid">
+        <article><b>⌖</b><h3>Markers</h3><p>Add gates, water points and landmarks from coordinates, map selection or current location.</p><button class="secondary" disabled>Coming next</button></article>
+        <article><b>#</b><h3>Temporary Access</h3><p>Create time-limited district or radius access codes and share them via WhatsApp.</p><button class="secondary" disabled>Coming next</button></article>
+        <article><b>◫</b><h3>District Data</h3><p>View district context, sync status and future area configuration.</p><button class="secondary" disabled>Coming later</button></article>
+      </section>
+      <section class="info"><div><span>Signed in as</span><strong id="adminName">—</strong></div><div><span>Account</span><strong id="adminEmail">—</strong></div><div><span>District access</span><strong id="districtCount">—</strong></div></section>
+    </main>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
