@@ -140,7 +140,6 @@ function populateDashboard(user,admin,districts){
     o.textContent='No districts assigned';
     sel.appendChild(o);
     sel.disabled=true;
-    $('districtTitle').textContent='No district available';
     return;
   }
 
@@ -157,16 +156,8 @@ function populateDashboard(user,admin,districts){
   const i=districts.findIndex(d=>d.code==='PETRUSBURG');
   if(i>=0)sel.selectedIndex=i;
 
-  updateDistrictTitle();
 }
 
-function updateDistrictTitle(){
-  const sel=$('districtSelect');
-  $('districtTitle').textContent=
-    sel.options[sel.selectedIndex]?.textContent||'District';
-}
-
-$('districtSelect').addEventListener('change',updateDistrictTitle);
 
 const togglePassword=$('togglePassword');
 const passwordEyeOpen=$('passwordEyeOpen');
