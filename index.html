@@ -106,7 +106,7 @@
 
   <div class="shell">
     <nav>
-      <button class="nav active">
+      <button id="dashboardNav" class="nav active" type="button">
         <span class="navSymbol">⌂</span>
         <span>Dashboard</span>
       </button>
@@ -144,15 +144,52 @@
         You are offline. Existing screen data remains visible, but online admin actions are unavailable.
       </div>
 
-      <section class="primary-action">
-        <div class="primary-copy">
-                    <h3>Temporary Access</h3>
+      <section id="temporaryAccessCard" class="primary-action">
+        <div id="tempAccessCreateState" class="temp-create-state">
+          <div class="primary-copy">
+            <h3>Temporary Access</h3>
+          </div>
+
+          <div class="primary-cta">
+            <button id="createAccessBtn" class="primary-btn" type="button">
+              Create Temporary Access
+            </button>
+          </div>
         </div>
 
-        <div class="primary-cta">
-          <button id="createAccessBtn" class="primary-btn" type="button">
-            Create Temporary Access
-          </button>
+        <div id="tempAccessActiveState" class="temp-active-state hidden">
+          <div class="active-access-title">
+            <div>
+              <h3>Temporary Access</h3>
+              <span class="active-access-badge">Active</span>
+            </div>
+
+            <button id="revokeActiveAccess" class="revoke-access-btn" type="button">
+              Revoke Access
+            </button>
+          </div>
+
+          <div class="active-access-details">
+            <div>
+              <span>Created</span>
+              <strong id="activeAccessCreated">—</strong>
+            </div>
+
+            <div>
+              <span>Expires</span>
+              <strong id="activeAccessExpires">—</strong>
+            </div>
+
+            <div>
+              <span>Time remaining</span>
+              <strong id="activeAccessCountdown">—</strong>
+            </div>
+
+            <div>
+              <span>Access area</span>
+              <strong id="activeAccessScope">—</strong>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -201,7 +238,7 @@
       <section id="tempAccessWorkspace" class="temp-workspace hidden">
         <div class="workspace-head">
           <div>
-            <button id="closeTempAccess" class="workspace-back" type="button">← Dashboard</button>
+            <button id="closeTempAccess" class="workspace-back" type="button">&lt; Dashboard</button>
             <h2>Create Temporary Access</h2>
             <p id="tempAccessAreaLabel" class="muted"></p>
           </div>
@@ -310,7 +347,7 @@
             <div id="copyStatus" class="success-message hidden"></div>
 
             <div class="workspace-actions result-actions">
-              <button id="createAnotherAccess" class="secondary" type="button">Create Another</button>
+              <button id="returnToDashboard" class="secondary" type="button">Dashboard</button>
               <button id="copyAccessCode" class="secondary" type="button">Copy Code</button>
               <button id="shareAccessWhatsApp" type="button">Share on WhatsApp</button>
             </div>

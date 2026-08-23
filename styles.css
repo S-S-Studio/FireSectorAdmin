@@ -349,3 +349,120 @@ input::selection{
   .map-toolbar{align-items:flex-start;flex-direction:column;gap:2px}
   .coordinate-map{height:40vh;min-height:280px}
 }
+
+
+/* V015 active Temporary Access state */
+.temp-create-state{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:28px;
+  align-items:center;
+}
+
+.temp-active-state{
+  width:100%;
+}
+
+.active-access-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+}
+
+.active-access-title>div{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.active-access-title h3{
+  margin:0;
+  font-size:28px;
+}
+
+.active-access-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:25px;
+  padding:4px 9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.28);
+  color:#fff;
+  font-size:11px;
+  font-weight:850;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.active-access-details{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-top:20px;
+}
+
+.active-access-details>div{
+  min-width:0;
+  padding:11px 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,.11);
+  border:1px solid rgba(255,255,255,.16);
+  display:grid;
+  gap:4px;
+}
+
+.active-access-details span{
+  font-size:11px;
+  color:rgba(255,255,255,.72);
+  font-weight:700;
+}
+
+.active-access-details strong{
+  color:#fff;
+  font-size:14px;
+  overflow-wrap:anywhere;
+}
+
+.revoke-access-btn{
+  flex:0 0 auto;
+  background:#fff;
+  color:#912018;
+  border:1px solid rgba(255,255,255,.75);
+}
+
+.revoke-access-btn:hover{
+  background:#fff7f5;
+}
+
+@media(max-width:900px){
+  .temp-create-state{
+    grid-template-columns:1fr;
+  }
+
+  .active-access-title{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .revoke-access-btn{
+    width:100%;
+  }
+
+  .active-access-details{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media(max-width:520px){
+  .active-access-details{
+    grid-template-columns:1fr;
+  }
+
+  .active-access-title h3{
+    font-size:25px;
+  }
+}
