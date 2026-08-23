@@ -248,6 +248,376 @@ function lockToLogin(){
 $('signOut').addEventListener('click',lockToLogin);
 $('deniedOut').addEventListener('click',lockToLogin);
 
+
+let generatedTemporaryAccess=null;
+
+async function rpcCall(functionName,payload){
+  return apiFetch(`/rest/v1/rpc/${functionName}`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      Accept:'application/json'
+    },
+    body:JSON.stringify(payload)
+  });
+}
+
+function selectedArea(){
+  const select=$('districtSelect');
+
+  if(!select){
+    return {id:'',name:'Area'};
+  }
+
+  const option=select.options[select.selectedIndex];
+
+  return {
+    id:option?.value||'',
+    name:option?.textContent||'Area'
+  };
+}
+
+function resetTempAccessForm(){
+  const area=selectedArea();
+
+  $('tempAccessAreaLabel').textContent=area.name;
+  $('tempAccessScope').value='district';
+  $('radiusFields').classList.add('hidden');
+  $('tempLatitude').value='';
+  $('tempLongitude').value='';
+  $('tempRadiusKm').value='10';
+  $('tempValidity').value='1440';
+  $('locationStatus').textContent='';
+  $('tempAccessError').textContent='';
+  $('tempAccessError').classList.add('hidden');
+  $('tempAccessFormView').classList.remove('hidden');
+  $('tempAccessResultView').classList.add('hidden');
+  $('copyStatus').textContent='';
+  $('copyStatus').classList.add('hidden');
+  generatedTemporaryAccess=null;
+}
+
+function openTempAccessModal(){
+  const area=selectedArea();
+
+  if(!area.id){
+    alert('Select an area first.');
+    return;
+  }
+
+  resetTempAccessForm();
+  $('tempAccessModal').classList.remove('hidden');
+}
+
+function closeTempAccessModal(){
+  $('tempAccessModal').classList.add('hidden');
+}
+
+function initialiseTemporaryAccess(){
+  const requiredIds=[
+    'createAccessBtn',
+    'temporaryAccessNav',
+    'tempAccessModal',
+    'closeTempAccess',
+    'cancelTempAccess',
+    'tempAccessScope',
+    'radiusFields',
+    'tempLatitude',
+    'tempLongitude',
+    'tempRadiusKm',
+    'tempValidity',
+    'useCurrentLocation',
+    'locationStatus',
+    'generateTempAccess',
+    'tempAccessError',
+    'tempAccessFormView',
+    'tempAccessResultView',
+    'tempAccessAreaLabel',
+    'generatedAccessCode',
+    'generatedAccessArea',
+    'generatedAccessExpiry',
+    'copyStatus',
+    'createAnotherAccess',
+    'copyAccessCode',
+    'shareAccessWhatsApp'
+  ];
+
+  const missing=requiredIds.filter(id=>!$(id));
+
+  if(missing.length){
+    console.error(
+      'Temporary Access UI could not initialise. Missing:',
+      missing
+    );
+    return;
+  }
+
+  $('createAccessBtn').disabled=false;
+
+  $('createAccessBtn').addEventListener(
+    'click',
+    openTempAccessModal
+  );
+
+  $('temporaryAccessNav').addEventListener(
+    'click',
+    openTempAccessModal
+  );
+
+  $('closeTempAccess').addEventListener(
+    'click',
+    closeTempAccessModal
+  );
+
+  $('cancelTempAccess').addEventListener(
+    'click',
+    closeTempAccessModal
+  );
+
+  $('tempAccessScope').addEventListener(
+    'change',
+    ()=>{
+      $('radiusFields').classList.toggle(
+        'hidden',
+        $('tempAccessScope').value!=='radius'
+      );
+    }
+  );
+
+  $('useCurrentLocation').addEventListener(
+    'click',
+    ()=>{
+      if(!navigator.geolocation){
+        $('locationStatus').textContent=
+          'Location is not available in this browser.';
+        return;
+      }
+
+      const button=$('useCurrentLocation');
+      button.disabled=true;
+      $('locationStatus').textContent=
+        'Getting location…';
+
+      navigator.geolocation.getCurrentPosition(
+        position=>{
+          $('tempLatitude').value=
+            position.coords.latitude.toFixed(7);
+
+          $('tempLongitude').value=
+            position.coords.longitude.toFixed(7);
+
+          $('locationStatus').textContent=
+            'Current location added.';
+
+          button.disabled=false;
+        },
+        error=>{
+          $('locationStatus').textContent=
+            error.code===1
+              ?'Location permission was not allowed.'
+              :'Could not get current location.';
+
+          button.disabled=false;
+        },
+        {
+          enableHighAccuracy:true,
+          timeout:12000,
+          maximumAge:0
+        }
+      );
+    }
+  );
+
+  $('generateTempAccess').addEventListener(
+    'click',
+    async()=>{
+      const area=selectedArea();
+      const scope=$('tempAccessScope').value;
+      const validity=Number(
+        $('tempValidity').value
+      );
+
+      let latitude=null;
+      let longitude=null;
+      let radius=null;
+
+      $('tempAccessError').textContent='';
+      $('tempAccessError').classList.add(
+        'hidden'
+      );
+
+      if(scope==='radius'){
+        latitude=Number(
+          $('tempLatitude').value
+        );
+
+        longitude=Number(
+          $('tempLongitude').value
+        );
+
+        radius=Number(
+          $('tempRadiusKm').value
+        );
+
+        if(
+          !Number.isFinite(latitude)||
+          !Number.isFinite(longitude)||
+          !Number.isFinite(radius)||
+          radius<=0
+        ){
+          $('tempAccessError').textContent=
+            'Enter valid coordinates and a radius.';
+
+          $('tempAccessError')
+            .classList
+            .remove('hidden');
+
+          return;
+        }
+      }
+
+      const button=$('generateTempAccess');
+      button.disabled=true;
+      button.textContent='Creating…';
+
+      try{
+        const result=await rpcCall(
+          'generate_temporary_access_code',
+          {
+            p_district_id:area.id,
+            p_scope_type:scope,
+            p_center_latitude:latitude,
+            p_center_longitude:longitude,
+            p_radius_km:radius,
+            p_valid_minutes:validity
+          }
+        );
+
+        const created=
+          Array.isArray(result)
+            ?result[0]
+            :null;
+
+        if(!created?.access_code){
+          throw new Error(
+            'No access code was returned.'
+          );
+        }
+
+        generatedTemporaryAccess={
+          ...created,
+          areaName:area.name
+        };
+
+        $('generatedAccessCode').textContent=
+          created.access_code;
+
+        $('generatedAccessArea').textContent=
+          scope==='district'
+            ?area.name
+            :`${radius} km radius`;
+
+        $('generatedAccessExpiry').textContent=
+          new Date(
+            created.expires_at
+          ).toLocaleString();
+
+        $('tempAccessFormView')
+          .classList
+          .add('hidden');
+
+        $('tempAccessResultView')
+          .classList
+          .remove('hidden');
+      }catch(error){
+        $('tempAccessError').textContent=
+          error.message||
+          'Could not create temporary access.';
+
+        $('tempAccessError')
+          .classList
+          .remove('hidden');
+      }finally{
+        button.disabled=false;
+        button.textContent=
+          'Create Temporary Access';
+      }
+    }
+  );
+
+  $('createAnotherAccess').addEventListener(
+    'click',
+    ()=>{
+      resetTempAccessForm();
+    }
+  );
+
+  $('copyAccessCode').addEventListener(
+    'click',
+    async()=>{
+      if(!generatedTemporaryAccess){
+        return;
+      }
+
+      try{
+        await navigator.clipboard.writeText(
+          generatedTemporaryAccess
+            .access_code
+        );
+
+        $('copyStatus').textContent=
+          'Access code copied.';
+      }catch(_){
+        $('copyStatus').textContent=
+          'Could not copy automatically. Select and copy the code above.';
+      }
+
+      $('copyStatus')
+        .classList
+        .remove('hidden');
+    }
+  );
+
+  $('shareAccessWhatsApp').addEventListener(
+    'click',
+    ()=>{
+      if(!generatedTemporaryAccess){
+        return;
+      }
+
+      const access=
+        generatedTemporaryAccess;
+
+      const scope=
+        access.scope_type==='district'
+          ?access.areaName
+          :`${access.radius_km} km radius`;
+
+      const message=[
+        'FireSector Temporary Access',
+        '',
+        `Access Code: ${access.access_code}`,
+        `Area: ${scope}`,
+        `Valid until: ${
+          new Date(
+            access.expires_at
+          ).toLocaleString()
+        }`,
+        '',
+        'Open FireSector and enter the access code.'
+      ].join('\n');
+
+      window.open(
+        `https://wa.me/?text=${
+          encodeURIComponent(message)
+        }`,
+        '_blank',
+        'noopener'
+      );
+    }
+  );
+}
+
 async function startup(){
   show('loading');
   clearSession();
@@ -323,4 +693,5 @@ window.addEventListener('pageshow',event=>{
   }
 });
 
+initialiseTemporaryAccess();
 startup();
