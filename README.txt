@@ -1,4 +1,4 @@
-FireSector Admin PWA v007
+FireSector Admin PWA v008
 
 Major changes:
 - No esm.sh / external Supabase JavaScript SDK dependency.
@@ -41,3 +41,8 @@ V007:
 - Districts admin tile renamed Areas.
 - District access renamed Area access.
 - System Status removed from the normal dashboard.
+
+V008:
+- Removed the duplicated current-area display below the primary action.
+- Area is shown only in the top dropdown.
+- Increased select right padding and moved the dropdown arrow inward.
