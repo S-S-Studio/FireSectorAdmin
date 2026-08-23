@@ -199,3 +199,100 @@ input::selection{
   background-size:5px 5px,5px 5px;
   background-repeat:no-repeat;
 }
+
+
+/* V011 administration card refinement */
+.primary-action {
+  align-items: center;
+}
+
+.primary-copy h3 {
+  margin-top: 0;
+}
+
+.grid .admin-card {
+  min-height: 118px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+}
+
+.admin-card-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-card-main h3 {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.admin-card .manage-btn {
+  flex: 0 0 auto;
+  min-width: 104px;
+}
+
+@media (min-width: 901px) {
+  .grid .admin-card {
+    min-height: 104px;
+  }
+
+  .admin-card-main {
+    gap: 16px;
+  }
+
+  .admin-card .manage-btn {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .grid .admin-card {
+    min-height: 86px;
+    padding: 14px 16px;
+    border-radius: 16px;
+  }
+
+  .admin-card-main {
+    gap: 12px;
+  }
+
+  .admin-card-main h3 {
+    font-size: 18px;
+  }
+
+  .admin-card .featureIcon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+  }
+
+  .admin-card .manage-btn {
+    min-width: 88px;
+    padding: 10px 13px;
+  }
+}
+
+@media (max-width: 420px) {
+  .grid .admin-card {
+    gap: 12px;
+  }
+
+  .admin-card-main {
+    gap: 10px;
+  }
+
+  .admin-card-main h3 {
+    font-size: 17px;
+  }
+
+  .admin-card .manage-btn {
+    min-width: 82px;
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+}

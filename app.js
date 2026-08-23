@@ -126,10 +126,17 @@ async function loadAdminContext(user){
 }
 
 function populateDashboard(user,admin,districts){
-  $('adminName').textContent=admin.display_name||'FireSector Admin';
+  $('adminName').textContent=admin.is_super_admin
+    ?'FireSector Master Administrator'
+    :'FireSector Admin';
   $('adminEmail').textContent=user.email||'—';
-  $('role').textContent=admin.is_super_admin?'Super Admin':'Admin';
-  $('welcome').textContent=`Welcome, ${admin.display_name||user.email||'Administrator'}.`;
+  $('role').textContent=admin.is_super_admin?'Master Administrator':'Admin';
+
+  const signedInDisplayName=admin.is_super_admin
+    ?'FireSector Master Administrator'
+    :'FireSector Admin';
+
+  $('welcome').textContent=`Welcome, ${signedInDisplayName}.`;
   $('districtCount').textContent=String(districts.length);
 
   const sel=$('districtSelect');
