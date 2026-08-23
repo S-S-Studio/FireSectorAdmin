@@ -250,6 +250,18 @@ $('deniedOut').addEventListener('click',lockToLogin);
 
 
 let generatedTemporaryAccess=null;
+let selectedTempLocation=null;
+
+const tempMap={
+  centerLat:-28.95,
+  centerLon:25.70,
+  zoom:11,
+  dragging:false,
+  moved:false,
+  startX:0,
+  startY:0,
+  startCenterWorld:null
+};
 
 async function rpcCall(functionName,payload){
   return apiFetch(`/rest/v1/rpc/${functionName}`,{
@@ -264,17 +276,249 @@ async function rpcCall(functionName,payload){
 
 function selectedArea(){
   const select=$('districtSelect');
-
-  if(!select){
-    return {id:'',name:'Area'};
-  }
-
-  const option=select.options[select.selectedIndex];
+  const option=select?.options?.[select.selectedIndex];
 
   return {
     id:option?.value||'',
     name:option?.textContent||'Area'
   };
+}
+
+function normaliseLongitude(lon){
+  let value=lon;
+  while(value<-180)value+=360;
+  while(value>180)value-=360;
+  return value;
+}
+
+function clampLatitude(lat){
+  return Math.max(-85.05112878,Math.min(85.05112878,lat));
+}
+
+function latLonToWorld(lat,lon,zoom){
+  const scale=256*Math.pow(2,zoom);
+  const x=(normaliseLongitude(lon)+180)/360*scale;
+  const safeLat=clampLatitude(lat);
+  const sin=Math.sin(safeLat*Math.PI/180);
+  const y=(0.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*scale;
+  return {x,y};
+}
+
+function worldToLatLon(x,y,zoom){
+  const scale=256*Math.pow(2,zoom);
+  const lon=x/scale*360-180;
+  const n=Math.PI-2*Math.PI*y/scale;
+  const lat=180/Math.PI*Math.atan(Math.sinh(n));
+
+  return {
+    lat:clampLatitude(lat),
+    lon:normaliseLongitude(lon)
+  };
+}
+
+function parseCoordinates(value){
+  const parts=String(value||'')
+    .trim()
+    .replace(/[°]/g,'')
+    .split(/[,\s]+/)
+    .filter(Boolean);
+
+  if(parts.length<2)return null;
+
+  const lat=Number(parts[0]);
+  const lon=Number(parts[1]);
+
+  if(
+    !Number.isFinite(lat)||
+    !Number.isFinite(lon)||
+    lat<-90||lat>90||
+    lon<-180||lon>180
+  ){
+    return null;
+  }
+
+  return {lat,lon};
+}
+
+function formatCoordinates(point){
+  return `${point.lat.toFixed(7)}, ${point.lon.toFixed(7)}`;
+}
+
+function setSelectedTempLocation(point,{recenter=true}={}){
+  selectedTempLocation={lat:point.lat,lon:point.lon};
+  $('tempCoordinates').value=formatCoordinates(selectedTempLocation);
+
+  if(recenter){
+    tempMap.centerLat=point.lat;
+    tempMap.centerLon=point.lon;
+  }
+
+  renderTempMap();
+}
+
+function renderTempMap(){
+  const map=$('coordinateMap');
+  const tiles=$('mapTiles');
+
+  if(!map||!tiles)return;
+
+  const width=map.clientWidth;
+  const height=map.clientHeight;
+
+  if(width<10||height<10)return;
+
+  const z=tempMap.zoom;
+  const center=latLonToWorld(tempMap.centerLat,tempMap.centerLon,z);
+  const left=center.x-width/2;
+  const top=center.y-height/2;
+
+  const minTileX=Math.floor(left/256);
+  const maxTileX=Math.floor((left+width)/256);
+  const minTileY=Math.floor(top/256);
+  const maxTileY=Math.floor((top+height)/256);
+  const tileCount=Math.pow(2,z);
+  const fragment=document.createDocumentFragment();
+
+  for(let ty=minTileY;ty<=maxTileY;ty++){
+    if(ty<0||ty>=tileCount)continue;
+
+    for(let tx=minTileX;tx<=maxTileX;tx++){
+      const wrappedX=((tx%tileCount)+tileCount)%tileCount;
+      const img=document.createElement('img');
+
+      img.className='map-tile';
+      img.alt='';
+      img.draggable=false;
+      img.src=`https://tile.openstreetmap.org/${z}/${wrappedX}/${ty}.png`;
+      img.style.left=`${tx*256-left}px`;
+      img.style.top=`${ty*256-top}px`;
+
+      fragment.appendChild(img);
+    }
+  }
+
+  tiles.replaceChildren(fragment);
+
+  const marker=$('mapSelectionMarker');
+
+  if(selectedTempLocation){
+    const p=latLonToWorld(
+      selectedTempLocation.lat,
+      selectedTempLocation.lon,
+      z
+    );
+
+    marker.style.left=`${p.x-left}px`;
+    marker.style.top=`${p.y-top}px`;
+    marker.classList.remove('hidden');
+  }else{
+    marker.classList.add('hidden');
+  }
+}
+
+function tempMapPointFromEvent(event){
+  const map=$('coordinateMap');
+  const rect=map.getBoundingClientRect();
+  const center=latLonToWorld(
+    tempMap.centerLat,
+    tempMap.centerLon,
+    tempMap.zoom
+  );
+
+  return worldToLatLon(
+    center.x+(event.clientX-rect.left-rect.width/2),
+    center.y+(event.clientY-rect.top-rect.height/2),
+    tempMap.zoom
+  );
+}
+
+function initialiseTempMap(){
+  const map=$('coordinateMap');
+
+  map.addEventListener('pointerdown',event=>{
+    if(event.target.closest('.map-zoom-controls'))return;
+
+    tempMap.dragging=true;
+    tempMap.moved=false;
+    tempMap.startX=event.clientX;
+    tempMap.startY=event.clientY;
+    tempMap.startCenterWorld=latLonToWorld(
+      tempMap.centerLat,
+      tempMap.centerLon,
+      tempMap.zoom
+    );
+
+    map.setPointerCapture(event.pointerId);
+  });
+
+  map.addEventListener('pointermove',event=>{
+    if(!tempMap.dragging)return;
+
+    const dx=event.clientX-tempMap.startX;
+    const dy=event.clientY-tempMap.startY;
+
+    if(Math.abs(dx)+Math.abs(dy)>5){
+      tempMap.moved=true;
+    }
+
+    const next=worldToLatLon(
+      tempMap.startCenterWorld.x-dx,
+      tempMap.startCenterWorld.y-dy,
+      tempMap.zoom
+    );
+
+    tempMap.centerLat=next.lat;
+    tempMap.centerLon=next.lon;
+    renderTempMap();
+  });
+
+  map.addEventListener('pointerup',event=>{
+    if(!tempMap.dragging)return;
+
+    tempMap.dragging=false;
+
+    if(!tempMap.moved){
+      setSelectedTempLocation(
+        tempMapPointFromEvent(event),
+        {recenter:false}
+      );
+    }
+  });
+
+  map.addEventListener('wheel',event=>{
+    event.preventDefault();
+
+    tempMap.zoom=Math.max(
+      4,
+      Math.min(18,tempMap.zoom+(event.deltaY<0?1:-1))
+    );
+
+    renderTempMap();
+  },{passive:false});
+
+  $('mapZoomIn').addEventListener('click',()=>{
+    tempMap.zoom=Math.min(18,tempMap.zoom+1);
+    renderTempMap();
+  });
+
+  $('mapZoomOut').addEventListener('click',()=>{
+    tempMap.zoom=Math.max(4,tempMap.zoom-1);
+    renderTempMap();
+  });
+}
+
+function setTempAccessView(open){
+  $('dashboardHome').classList.toggle('hidden',open);
+  $('tempAccessWorkspace').classList.toggle('hidden',!open);
+
+  document.querySelectorAll('nav .nav')
+    .forEach(item=>item.classList.remove('active'));
+
+  if(open){
+    $('temporaryAccessNav').classList.add('active');
+  }else{
+    document.querySelector('nav .nav')?.classList.add('active');
+  }
 }
 
 function resetTempAccessForm(){
@@ -283,8 +527,7 @@ function resetTempAccessForm(){
   $('tempAccessAreaLabel').textContent=area.name;
   $('tempAccessScope').value='district';
   $('radiusFields').classList.add('hidden');
-  $('tempLatitude').value='';
-  $('tempLongitude').value='';
+  $('tempCoordinates').value='';
   $('tempRadiusKm').value='10';
   $('tempValidity').value='1440';
   $('locationStatus').textContent='';
@@ -294,10 +537,16 @@ function resetTempAccessForm(){
   $('tempAccessResultView').classList.add('hidden');
   $('copyStatus').textContent='';
   $('copyStatus').classList.add('hidden');
+
   generatedTemporaryAccess=null;
+  selectedTempLocation=null;
+
+  tempMap.centerLat=-28.95;
+  tempMap.centerLon=25.70;
+  tempMap.zoom=11;
 }
 
-function openTempAccessModal(){
+function openTempAccessWorkspace(){
   const area=selectedArea();
 
   if(!area.id){
@@ -306,316 +555,236 @@ function openTempAccessModal(){
   }
 
   resetTempAccessForm();
-  $('tempAccessModal').classList.remove('hidden');
+  setTempAccessView(true);
+
+  requestAnimationFrame(renderTempMap);
 }
 
-function closeTempAccessModal(){
-  $('tempAccessModal').classList.add('hidden');
+function closeTempAccessWorkspace(){
+  setTempAccessView(false);
 }
 
 function initialiseTemporaryAccess(){
   const requiredIds=[
-    'createAccessBtn',
-    'temporaryAccessNav',
-    'tempAccessModal',
-    'closeTempAccess',
-    'cancelTempAccess',
-    'tempAccessScope',
-    'radiusFields',
-    'tempLatitude',
-    'tempLongitude',
-    'tempRadiusKm',
-    'tempValidity',
-    'useCurrentLocation',
-    'locationStatus',
-    'generateTempAccess',
-    'tempAccessError',
-    'tempAccessFormView',
-    'tempAccessResultView',
-    'tempAccessAreaLabel',
-    'generatedAccessCode',
-    'generatedAccessArea',
-    'generatedAccessExpiry',
-    'copyStatus',
-    'createAnotherAccess',
-    'copyAccessCode',
-    'shareAccessWhatsApp'
+    'dashboardHome','tempAccessWorkspace','createAccessBtn','temporaryAccessNav',
+    'closeTempAccess','cancelTempAccess','tempAccessScope','radiusFields',
+    'coordinateMap','mapTiles','mapSelectionMarker','mapZoomIn','mapZoomOut',
+    'tempCoordinates','applyCoordinates','tempRadiusKm','tempValidity',
+    'useCurrentLocation','locationStatus','generateTempAccess','tempAccessError',
+    'tempAccessFormView','tempAccessResultView','tempAccessAreaLabel',
+    'generatedAccessCode','generatedAccessArea','generatedAccessExpiry',
+    'copyStatus','createAnotherAccess','copyAccessCode','shareAccessWhatsApp'
   ];
 
   const missing=requiredIds.filter(id=>!$(id));
 
   if(missing.length){
-    console.error(
-      'Temporary Access UI could not initialise. Missing:',
-      missing
-    );
+    console.error('Temporary Access UI could not initialise. Missing:',missing);
     return;
   }
 
+  initialiseTempMap();
   $('createAccessBtn').disabled=false;
 
-  $('createAccessBtn').addEventListener(
-    'click',
-    openTempAccessModal
-  );
+  $('createAccessBtn').addEventListener('click',openTempAccessWorkspace);
+  $('temporaryAccessNav').addEventListener('click',openTempAccessWorkspace);
+  $('closeTempAccess').addEventListener('click',closeTempAccessWorkspace);
+  $('cancelTempAccess').addEventListener('click',closeTempAccessWorkspace);
 
-  $('temporaryAccessNav').addEventListener(
-    'click',
-    openTempAccessModal
-  );
+  $('tempAccessScope').addEventListener('change',()=>{
+    const radius=$('tempAccessScope').value==='radius';
+    $('radiusFields').classList.toggle('hidden',!radius);
 
-  $('closeTempAccess').addEventListener(
-    'click',
-    closeTempAccessModal
-  );
-
-  $('cancelTempAccess').addEventListener(
-    'click',
-    closeTempAccessModal
-  );
-
-  $('tempAccessScope').addEventListener(
-    'change',
-    ()=>{
-      $('radiusFields').classList.toggle(
-        'hidden',
-        $('tempAccessScope').value!=='radius'
-      );
+    if(radius){
+      requestAnimationFrame(renderTempMap);
     }
-  );
+  });
 
-  $('useCurrentLocation').addEventListener(
-    'click',
-    ()=>{
-      if(!navigator.geolocation){
-        $('locationStatus').textContent=
-          'Location is not available in this browser.';
-        return;
-      }
+  $('applyCoordinates').addEventListener('click',()=>{
+    const point=parseCoordinates($('tempCoordinates').value);
 
-      const button=$('useCurrentLocation');
-      button.disabled=true;
+    if(!point){
       $('locationStatus').textContent=
-        'Getting location…';
-
-      navigator.geolocation.getCurrentPosition(
-        position=>{
-          $('tempLatitude').value=
-            position.coords.latitude.toFixed(7);
-
-          $('tempLongitude').value=
-            position.coords.longitude.toFixed(7);
-
-          $('locationStatus').textContent=
-            'Current location added.';
-
-          button.disabled=false;
-        },
-        error=>{
-          $('locationStatus').textContent=
-            error.code===1
-              ?'Location permission was not allowed.'
-              :'Could not get current location.';
-
-          button.disabled=false;
-        },
-        {
-          enableHighAccuracy:true,
-          timeout:12000,
-          maximumAge:0
-        }
-      );
+        'Paste coordinates like -28.9624455, 25.7132135';
+      return;
     }
-  );
 
-  $('generateTempAccess').addEventListener(
-    'click',
-    async()=>{
-      const area=selectedArea();
-      const scope=$('tempAccessScope').value;
-      const validity=Number(
-        $('tempValidity').value
-      );
+    $('locationStatus').textContent='Location selected.';
+    setSelectedTempLocation(point);
+  });
 
-      let latitude=null;
-      let longitude=null;
-      let radius=null;
+  $('tempCoordinates').addEventListener('keydown',event=>{
+    if(event.key==='Enter'){
+      event.preventDefault();
+      $('applyCoordinates').click();
+    }
+  });
 
-      $('tempAccessError').textContent='';
-      $('tempAccessError').classList.add(
-        'hidden'
-      );
+  $('useCurrentLocation').addEventListener('click',()=>{
+    if(!navigator.geolocation){
+      $('locationStatus').textContent=
+        'Location is not available in this browser.';
+      return;
+    }
 
-      if(scope==='radius'){
-        latitude=Number(
-          $('tempLatitude').value
-        );
+    const button=$('useCurrentLocation');
+    button.disabled=true;
+    $('locationStatus').textContent='Getting location…';
 
-        longitude=Number(
-          $('tempLongitude').value
-        );
+    navigator.geolocation.getCurrentPosition(
+      position=>{
+        tempMap.zoom=15;
 
-        radius=Number(
-          $('tempRadiusKm').value
-        );
+        setSelectedTempLocation({
+          lat:position.coords.latitude,
+          lon:position.coords.longitude
+        });
 
-        if(
-          !Number.isFinite(latitude)||
-          !Number.isFinite(longitude)||
-          !Number.isFinite(radius)||
-          radius<=0
-        ){
-          $('tempAccessError').textContent=
-            'Enter valid coordinates and a radius.';
-
-          $('tempAccessError')
-            .classList
-            .remove('hidden');
-
-          return;
-        }
-      }
-
-      const button=$('generateTempAccess');
-      button.disabled=true;
-      button.textContent='Creating…';
-
-      try{
-        const result=await rpcCall(
-          'generate_temporary_access_code',
-          {
-            p_district_id:area.id,
-            p_scope_type:scope,
-            p_center_latitude:latitude,
-            p_center_longitude:longitude,
-            p_radius_km:radius,
-            p_valid_minutes:validity
-          }
-        );
-
-        const created=
-          Array.isArray(result)
-            ?result[0]
-            :null;
-
-        if(!created?.access_code){
-          throw new Error(
-            'No access code was returned.'
-          );
-        }
-
-        generatedTemporaryAccess={
-          ...created,
-          areaName:area.name
-        };
-
-        $('generatedAccessCode').textContent=
-          created.access_code;
-
-        $('generatedAccessArea').textContent=
-          scope==='district'
-            ?area.name
-            :`${radius} km radius`;
-
-        $('generatedAccessExpiry').textContent=
-          new Date(
-            created.expires_at
-          ).toLocaleString();
-
-        $('tempAccessFormView')
-          .classList
-          .add('hidden');
-
-        $('tempAccessResultView')
-          .classList
-          .remove('hidden');
-      }catch(error){
-        $('tempAccessError').textContent=
-          error.message||
-          'Could not create temporary access.';
-
-        $('tempAccessError')
-          .classList
-          .remove('hidden');
-      }finally{
+        $('locationStatus').textContent='Current location selected.';
         button.disabled=false;
-        button.textContent=
-          'Create Temporary Access';
+      },
+      error=>{
+        $('locationStatus').textContent=
+          error.code===1
+            ?'Location permission was not allowed.'
+            :'Could not get current location.';
+        button.disabled=false;
+      },
+      {
+        enableHighAccuracy:true,
+        timeout:12000,
+        maximumAge:0
       }
-    }
-  );
+    );
+  });
 
-  $('createAnotherAccess').addEventListener(
-    'click',
-    ()=>{
-      resetTempAccessForm();
-    }
-  );
+  $('generateTempAccess').addEventListener('click',async()=>{
+    const area=selectedArea();
+    const scope=$('tempAccessScope').value;
+    const validity=Number($('tempValidity').value);
 
-  $('copyAccessCode').addEventListener(
-    'click',
-    async()=>{
-      if(!generatedTemporaryAccess){
+    let latitude=null;
+    let longitude=null;
+    let radius=null;
+
+    $('tempAccessError').textContent='';
+    $('tempAccessError').classList.add('hidden');
+
+    if(scope==='radius'){
+      const typed=parseCoordinates($('tempCoordinates').value);
+
+      if(typed){
+        selectedTempLocation=typed;
+      }
+
+      radius=Number($('tempRadiusKm').value);
+
+      if(!selectedTempLocation||!Number.isFinite(radius)||radius<=0){
+        $('tempAccessError').textContent=
+          'Select a location on the map or paste coordinates, then enter a valid radius.';
+        $('tempAccessError').classList.remove('hidden');
         return;
       }
 
-      try{
-        await navigator.clipboard.writeText(
-          generatedTemporaryAccess
-            .access_code
-        );
-
-        $('copyStatus').textContent=
-          'Access code copied.';
-      }catch(_){
-        $('copyStatus').textContent=
-          'Could not copy automatically. Select and copy the code above.';
-      }
-
-      $('copyStatus')
-        .classList
-        .remove('hidden');
+      latitude=selectedTempLocation.lat;
+      longitude=selectedTempLocation.lon;
     }
-  );
 
-  $('shareAccessWhatsApp').addEventListener(
-    'click',
-    ()=>{
-      if(!generatedTemporaryAccess){
-        return;
+    const button=$('generateTempAccess');
+    button.disabled=true;
+    button.textContent='Creating…';
+
+    try{
+      const result=await rpcCall('generate_temporary_access_code',{
+        p_district_id:area.id,
+        p_scope_type:scope,
+        p_center_latitude:latitude,
+        p_center_longitude:longitude,
+        p_radius_km:radius,
+        p_valid_minutes:validity
+      });
+
+      const created=Array.isArray(result)?result[0]:null;
+
+      if(!created?.access_code){
+        throw new Error('No access code was returned.');
       }
 
-      const access=
-        generatedTemporaryAccess;
+      generatedTemporaryAccess={...created,areaName:area.name};
 
-      const scope=
-        access.scope_type==='district'
-          ?access.areaName
-          :`${access.radius_km} km radius`;
+      $('generatedAccessCode').textContent=created.access_code;
+      $('generatedAccessArea').textContent=
+        scope==='district'
+          ?area.name
+          :`${radius} km radius from ${formatCoordinates(selectedTempLocation)}`;
 
-      const message=[
-        'FireSector Temporary Access',
-        '',
-        `Access Code: ${access.access_code}`,
-        `Area: ${scope}`,
-        `Valid until: ${
-          new Date(
-            access.expires_at
-          ).toLocaleString()
-        }`,
-        '',
-        'Open FireSector and enter the access code.'
-      ].join('\n');
+      $('generatedAccessExpiry').textContent=
+        new Date(created.expires_at).toLocaleString();
 
-      window.open(
-        `https://wa.me/?text=${
-          encodeURIComponent(message)
-        }`,
-        '_blank',
-        'noopener'
+      $('tempAccessFormView').classList.add('hidden');
+      $('tempAccessResultView').classList.remove('hidden');
+    }catch(error){
+      $('tempAccessError').textContent=
+        error.message||'Could not create temporary access.';
+      $('tempAccessError').classList.remove('hidden');
+    }finally{
+      button.disabled=false;
+      button.textContent='Create Temporary Access';
+    }
+  });
+
+  $('createAnotherAccess').addEventListener('click',()=>{
+    resetTempAccessForm();
+    requestAnimationFrame(renderTempMap);
+  });
+
+  $('copyAccessCode').addEventListener('click',async()=>{
+    if(!generatedTemporaryAccess)return;
+
+    try{
+      await navigator.clipboard.writeText(
+        generatedTemporaryAccess.access_code
       );
+      $('copyStatus').textContent='Access code copied.';
+    }catch(_){
+      $('copyStatus').textContent=
+        'Could not copy automatically. Select and copy the code above.';
     }
-  );
+
+    $('copyStatus').classList.remove('hidden');
+  });
+
+  $('shareAccessWhatsApp').addEventListener('click',()=>{
+    if(!generatedTemporaryAccess)return;
+
+    const access=generatedTemporaryAccess;
+    const scope=
+      access.scope_type==='district'
+        ?access.areaName
+        :`${access.radius_km} km radius`;
+
+    const message=[
+      'FireSector Temporary Access',
+      '',
+      `Access Code: ${access.access_code}`,
+      `Area: ${scope}`,
+      `Valid until: ${new Date(access.expires_at).toLocaleString()}`,
+      '',
+      'Open FireSector and enter the access code.'
+    ].join('\n');
+
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener'
+    );
+  });
+
+  window.addEventListener('resize',()=>{
+    if(!$('tempAccessWorkspace').classList.contains('hidden')){
+      renderTempMap();
+    }
+  });
 }
 
 async function startup(){
