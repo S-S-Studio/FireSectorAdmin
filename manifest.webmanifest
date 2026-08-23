@@ -2,7 +2,7 @@
   "name": "FireSector Admin",
   "short_name": "FireSector",
   "description": "FireSector administration portal",
-  "start_url": "./?v=005",
+  "start_url": "./?v=007",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4f6f8",

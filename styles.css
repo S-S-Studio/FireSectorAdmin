@@ -111,3 +111,73 @@ main{padding:28px;max-width:1280px;width:100%;margin:auto}
   .actions button{padding:8px 9px;font-size:12px}
   .primary-action{margin-top:18px}
 }
+
+
+/* V006 - stable login controls */
+.password-toggle{
+  width:42px;
+  height:38px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  color:#667085;
+  background:#fff;
+  border:0;
+  box-shadow:none;
+  outline:none;
+}
+.password-toggle:hover{background:#f2f4f7}
+.password-toggle:active{background:#eaecf0}
+.password-toggle svg{
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  pointer-events:none;
+}
+.password-toggle .hidden{display:none!important}
+
+input,
+.password-wrap input{
+  background-color:#fff!important;
+  background-image:none!important;
+  color:#1d2939!important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active{
+  -webkit-text-fill-color:#1d2939!important;
+  -webkit-box-shadow:0 0 0 1000px #fff inset!important;
+  box-shadow:0 0 0 1000px #fff inset!important;
+  background-color:#fff!important;
+  background-image:none!important;
+  caret-color:#1d2939!important;
+  transition:background-color 999999s ease-in-out 0s!important;
+}
+
+input:autofill{
+  background:#fff!important;
+  color:#1d2939!important;
+}
+
+input::selection{
+  background:#dbeafe;
+  color:#1d2939;
+}
+
+#error{
+  margin-top:-4px;
+}
+
+/* V007: operational terminology and cleaner admin dashboard */
+.area-strip{justify-content:flex-start}
+.area-strip>div{display:grid;gap:3px;align-items:start}
+@media(min-width:901px){
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

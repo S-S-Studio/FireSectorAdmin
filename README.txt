@@ -1,4 +1,4 @@
-FireSector Admin PWA v005
+FireSector Admin PWA v007
 
 Major changes:
 - No esm.sh / external Supabase JavaScript SDK dependency.
@@ -26,3 +26,18 @@ V005:
 - Renamed District Data to Districts.
 - System Status retained.
 - Secondary administration cards now use concise app-style labels.
+
+V006:
+- Persistent custom eye icon for show/hide password.
+- Eye control remains visible after failed sign-in attempts.
+- Failed sign-in shows: Incorrect email or password.
+- Failed login does not clear the entered password.
+- Stronger browser autofill styling keeps input fields white.
+- Login error clears when the user edits email or password.
+
+V007:
+- Removed backend connectivity status from the normal dashboard.
+- Uses Area as the FireSector operational term instead of District in UI labels.
+- Districts admin tile renamed Areas.
+- District access renamed Area access.
+- System Status removed from the normal dashboard.

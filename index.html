@@ -45,20 +45,31 @@
 
     <label>
       Email
-      <input id="email" type="email" autocomplete="username" required>
+      <input id="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
     </label>
 
     <label>
       Password
       <div class="password-wrap">
-        <input id="password" type="password" autocomplete="current-password" required>
+        <input id="password" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
         <button
           id="togglePassword"
           class="password-toggle"
           type="button"
           aria-label="Show password"
           aria-pressed="false"
-        >Show</button>
+        >
+          <svg id="passwordEyeOpen" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2.2 12s3.5-6 9.8-6 9.8 6 9.8 6-3.5 6-9.8 6-9.8-6-9.8-6Z"/>
+            <circle cx="12" cy="12" r="2.8"/>
+          </svg>
+          <svg id="passwordEyeClosed" class="hidden" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 3l18 18"/>
+            <path d="M10.6 6.2A10 10 0 0 1 12 6c6.3 0 9.8 6 9.8 6a15.8 15.8 0 0 1-3.2 3.9"/>
+            <path d="M6.1 6.1C3.5 8 2.2 12 2.2 12s3.5 6 9.8 6c1.5 0 2.8-.3 4-.8"/>
+            <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"/>
+          </svg>
+        </button>
       </div>
     </label>
 
@@ -109,7 +120,7 @@
       </button>
       <button class="nav" disabled>
         <span class="navSymbol">◫</span>
-        <span>Districts</span>
+        <span>Areas</span>
       </button>
     </nav>
 
@@ -122,7 +133,7 @@
         </div>
 
         <label class="district">
-          Current district
+          Current area
           <select id="districtSelect"></select>
         </label>
       </div>
@@ -144,13 +155,9 @@
         </div>
       </section>
 
-      <section class="district-strip">
+      <section class="district-strip area-strip">
         <div>
-          <span class="status-dot"></span>
-          <span id="conn">Connected to FireSector backend</span>
-        </div>
-        <div>
-          <span class="label">Current district</span>
+          <span class="label">Current area</span>
           <strong id="districtTitle">Petrusburg District</strong>
         </div>
       </section>
@@ -170,15 +177,10 @@
 
         <article>
           <div class="featureIcon amber">◫</div>
-          <h3>Districts</h3>
+          <h3>Areas</h3>
           <button class="secondary" disabled>Open</button>
         </article>
 
-        <article>
-          <div class="featureIcon blue">◎</div>
-          <h3>System Status</h3>
-          <button class="secondary" disabled>Open</button>
-        </article>
       </section>
 
       <section class="info">
@@ -191,7 +193,7 @@
           <strong id="adminEmail">—</strong>
         </div>
         <div>
-          <span>District access</span>
+          <span>Area access</span>
           <strong id="districtCount">—</strong>
         </div>
       </section>

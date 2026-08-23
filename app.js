@@ -169,16 +169,37 @@ function updateDistrictTitle(){
 $('districtSelect').addEventListener('change',updateDistrictTitle);
 
 const togglePassword=$('togglePassword');
+const passwordEyeOpen=$('passwordEyeOpen');
+const passwordEyeClosed=$('passwordEyeClosed');
+
+togglePassword.addEventListener('mousedown',event=>{
+  event.preventDefault();
+});
+
 togglePassword.addEventListener('click',()=>{
   const input=$('password');
-  const showing=input.type==='text';
-  input.type=showing?'password':'text';
-  togglePassword.textContent=showing?'Show':'Hide';
-  togglePassword.setAttribute('aria-pressed',String(!showing));
-  togglePassword.setAttribute('aria-label',showing?'Show password':'Hide password');
+  const willShow=input.type==='password';
+
+  input.type=willShow?'text':'password';
+
+  passwordEyeOpen.classList.toggle('hidden',willShow);
+  passwordEyeClosed.classList.toggle('hidden',!willShow);
+
+  togglePassword.setAttribute('aria-pressed',String(willShow));
+  togglePassword.setAttribute(
+    'aria-label',
+    willShow?'Hide password':'Show password'
+  );
+
   input.focus({preventScroll:true});
   const len=input.value.length;
   try{input.setSelectionRange(len,len)}catch(_){}
+});
+
+['email','password'].forEach(id=>{
+  $(id).addEventListener('input',()=>{
+    clearLoginError();
+  });
 });
 
 $('loginForm').addEventListener('submit',async e=>{
@@ -209,7 +230,7 @@ $('loginForm').addEventListener('submit',async e=>{
       message.includes('invalid credentials')||
       message.includes('email or password')
     ){
-      showLoginError('Invalid email or password.');
+      showLoginError('Incorrect email or password.');
     }else{
       showLoginError(error.message||'Could not connect to FireSector.');
     }
@@ -258,9 +279,7 @@ $('retryStartup').addEventListener('click',startup);
 function updateOnlineState(){
   const offline=!navigator.onLine;
   $('offline').classList.toggle('hidden',!offline);
-  $('conn').textContent=offline
-    ?'Offline — using current screen data'
-    :'Connected to FireSector backend';
+
 }
 
 window.addEventListener('online',updateOnlineState);
