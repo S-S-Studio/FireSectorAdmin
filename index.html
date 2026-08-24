@@ -13,6 +13,25 @@
 </head>
 <body>
 
+<div id="openFireSector" class="screen center hidden">
+  <div class="card auth deep-link-card">
+    <div class="logo">FS</div>
+    <h1>Open FireSector</h1>
+    <p class="muted">Temporary Access is ready to open in the FireSector Emergency app.</p>
+
+    <div class="deep-link-code-wrap">
+      <span>Access Code</span>
+      <strong id="openFireSectorCode" class="access-code compact-code">—</strong>
+    </div>
+
+    <div id="openFireSectorStatus" class="muted deep-link-status"></div>
+
+    <button id="openFireSectorApp" type="button">Open FireSector</button>
+    <button id="copyOpenFireSectorCode" class="secondary" type="button">Copy Access Code</button>
+    <button id="openAdminInstead" class="ghost deep-link-admin" type="button">FireSector Admin</button>
+  </div>
+</div>
+
 <div id="loading" class="screen center">
   <div class="card auth">
     <div class="logo">FS</div>
@@ -353,6 +372,11 @@
                   <strong id="generatedAccessExpiry">—</strong>
                 </div>
               </div>
+
+              <div class="access-link-block">
+                <span class="result-label">Open FireSector Link</span>
+                <a id="generatedAccessLink" href="#" target="_blank" rel="noopener">—</a>
+              </div>
             </div>
 
             <div id="copyStatus" class="success-message hidden"></div>
@@ -360,6 +384,7 @@
             <div class="workspace-actions result-actions">
               <button id="returnToDashboard" class="secondary" type="button">Dashboard</button>
               <button id="copyAccessCode" class="secondary" type="button">Copy Code</button>
+              <button id="copyAccessLink" class="secondary" type="button">Copy Link</button>
               <button id="shareAccessWhatsApp" type="button">Share on WhatsApp</button>
             </div>
           </section>
@@ -562,6 +587,50 @@
       </select>
     </label>
 
+    <div id="extendRadiusFields" class="extend-radius-fields hidden">
+      <div class="extend-map-heading">
+        <div>
+          <strong>Access area</strong>
+          <span class="muted">Tap the map to move the centre point</span>
+        </div>
+      </div>
+
+      <div id="extendAccessMap" class="coordinate-map extend-access-map" aria-label="Change Temporary Access centre and radius">
+        <div id="extendAccessMapTiles" class="map-tiles"></div>
+        <div id="extendAccessRadiusOverlay" class="map-radius-overlay hidden"></div>
+        <div id="extendAccessSelectionMarker" class="map-selection-marker hidden"></div>
+
+        <div class="map-zoom-controls">
+          <button id="extendAccessZoomIn" type="button" aria-label="Zoom in">+</button>
+          <button id="extendAccessZoomOut" type="button" aria-label="Zoom out">−</button>
+        </div>
+
+        <div class="map-attribution">© OpenStreetMap contributors</div>
+      </div>
+
+      <div class="extend-radius-controls">
+        <label>
+          Coordinates
+          <div class="coordinate-row">
+            <input id="extendAccessCoordinates" type="text" autocomplete="off" placeholder="-28.9624455, 25.7132135">
+            <button id="setExtendAccessCoordinates" class="secondary" type="button">Set Point</button>
+          </div>
+        </label>
+
+        <div class="location-row">
+          <button id="useExtendCurrentLocation" class="secondary" type="button">Use Current Location</button>
+          <span id="extendAccessLocationStatus" class="muted"></span>
+        </div>
+
+        <label>
+          Radius (km)
+          <input id="extendAccessRadiusKm" type="number" min="0.1" max="500" step="0.1">
+        </label>
+
+        <p class="muted extend-radius-note">All existing Fire Points must remain inside the updated radius.</p>
+      </div>
+    </div>
+
     <div id="extendAccessError" class="error hidden"></div>
 
     <div class="modal-actions">
@@ -570,7 +639,6 @@
     </div>
   </section>
 </div>
-
 
 <script src="app.js"></script>
 </body>
