@@ -645,3 +645,73 @@ input::selection{
   .mapdata-editor-actions .danger-outline{grid-column:1 / -1}
   .mapdata-editor-actions button{width:100%}
 }
+
+
+/* V017 Map Data usability refinements */
+.location-controls > .temp-validity-section{
+  border-top:0;
+  padding:0;
+}
+
+.mapdata-mobile-type-picker{
+  display:none;
+}
+
+.mapdata-mobile-type-label{
+  display:block;
+  margin-bottom:8px;
+  color:#344054;
+  font-size:12px;
+  font-weight:800;
+}
+
+.mapdata-search{
+  display:grid;
+  gap:6px;
+  margin-bottom:14px;
+}
+
+.mapdata-search>span{
+  color:#344054;
+  font-size:12px;
+  font-weight:800;
+}
+
+.mapdata-search small{
+  min-height:16px;
+  line-height:1.35;
+}
+
+.map-data-marker.selected{
+  z-index:24;
+}
+
+.map-data-marker.preview{
+  z-index:30;
+  pointer-events:none;
+  box-shadow:
+    0 3px 8px rgba(16,24,40,.34),
+    0 0 0 5px rgba(255,255,255,.72),
+    0 0 0 8px rgba(180,35,24,.22);
+}
+
+.map-data-marker.preview::before{
+  animation:none;
+}
+
+@media(max-width:600px){
+  .mapdata-mobile-type-picker{
+    display:block;
+    margin-bottom:14px;
+    padding-bottom:14px;
+    border-bottom:1px solid #f2f4f7;
+  }
+
+  .mapdata-mobile-type-picker .mapdata-add-grid{
+    margin-bottom:0;
+  }
+
+  .mapdata-desktop-add-grid{
+    display:none;
+  }
+}

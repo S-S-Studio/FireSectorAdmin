@@ -311,19 +311,21 @@
               </div>
             </div>
 
-            <div class="form-section">
-              <label>
-                Valid for
-                <select id="tempValidity">
-                  <option value="60">1 hour</option>
-                  <option value="360">6 hours</option>
-                  <option value="720">12 hours</option>
-                  <option value="1440" selected>24 hours</option>
-                  <option value="2880">48 hours</option>
-                  <option value="4320">72 hours</option>
-                  <option value="10080">7 days</option>
-                </select>
-              </label>
+            <div id="tempValidityDefaultSlot">
+              <div id="tempValiditySection" class="form-section temp-validity-section">
+                <label>
+                  Valid for
+                  <select id="tempValidity">
+                    <option value="60">1 hour</option>
+                    <option value="360">6 hours</option>
+                    <option value="720">12 hours</option>
+                    <option value="1440" selected>24 hours</option>
+                    <option value="2880">48 hours</option>
+                    <option value="4320">72 hours</option>
+                    <option value="10080">7 days</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             <div id="tempAccessError" class="error hidden"></div>
@@ -378,6 +380,16 @@
 
         <div class="mapdata-layout">
           <section class="workspace-panel mapdata-map-panel">
+            <div class="mapdata-mobile-type-picker" aria-label="Add map item">
+              <span class="mapdata-mobile-type-label">Marker type</span>
+              <div class="mapdata-add-grid">
+                <button id="mobileAddWaterPoint" class="mapdata-add water" type="button">+ Water</button>
+                <button id="mobileAddGate" class="mapdata-add gate" type="button">+ Gate</button>
+                <button id="mobileAddLandmark" class="mapdata-add landmark" type="button">+ Landmark</button>
+                <button id="mobileAddFirePoint" class="mapdata-add fire" type="button">+ Fire</button>
+              </div>
+            </div>
+
             <div class="map-toolbar mapdata-toolbar">
               <div>
                 <strong>Area Map</strong>
@@ -414,12 +426,23 @@
                 </div>
               </div>
 
-              <div class="mapdata-add-grid">
+              <div class="mapdata-add-grid mapdata-desktop-add-grid">
                 <button id="addWaterPoint" class="mapdata-add water" type="button">+ Water</button>
                 <button id="addGate" class="mapdata-add gate" type="button">+ Gate</button>
                 <button id="addLandmark" class="mapdata-add landmark" type="button">+ Landmark</button>
                 <button id="addFirePoint" class="mapdata-add fire" type="button">+ Fire</button>
               </div>
+
+              <label class="mapdata-search">
+                <span>Find farm</span>
+                <input
+                  id="mapDataFarmSearch"
+                  type="search"
+                  autocomplete="off"
+                  placeholder="Start typing a farm name…"
+                >
+                <small id="mapDataSearchStatus" class="muted"></small>
+              </label>
 
               <div id="mapDataItems" class="mapdata-items"></div>
             </div>
@@ -462,14 +485,31 @@
                   <span id="mapDataLocationStatus" class="muted"></span>
                 </div>
 
-                <label id="mapDataStatusField">
-                  <span id="mapDataStatusLabel">Status</span>
-                  <input id="mapDataStatus" type="text" maxlength="120" autocomplete="off">
+                <label id="mapDataFarmField">
+                  <span>Farm</span>
+                  <select id="mapDataFarm">
+                    <option value="">Not linked to a farm</option>
+                  </select>
                 </label>
 
-                <label id="mapDataSubtypeField">
-                  <span id="mapDataSubtypeLabel">Type / category</span>
-                  <input id="mapDataSubtype" type="text" maxlength="120" autocomplete="off">
+                <label id="mapDataStatusField">
+                  <span id="mapDataStatusLabel">Status</span>
+                  <select id="mapDataStatus"></select>
+                </label>
+
+                <label id="mapDataSubtypeSelectField">
+                  <span id="mapDataSubtypeSelectLabel">Type / category</span>
+                  <select id="mapDataSubtype"></select>
+                </label>
+
+                <label id="mapDataSubtypeTextField" class="hidden">
+                  <span id="mapDataSubtypeTextLabel">Landmark type</span>
+                  <input id="mapDataSubtypeText" type="text" maxlength="120" autocomplete="off">
+                </label>
+
+                <label id="mapDataAvailabilityField" class="hidden">
+                  <span>Availability</span>
+                  <select id="mapDataAvailability"></select>
                 </label>
 
                 <label>

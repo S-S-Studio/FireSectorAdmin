@@ -1,4 +1,4 @@
-const CACHE='firesector-admin-v016';
+const CACHE='firesector-admin-v017';
 const SHELL=[
   './',
   './index.html',

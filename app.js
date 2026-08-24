@@ -1,4 +1,4 @@
-/* FireSector Admin app.js V016 */
+/* FireSector Admin app.js V017 */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
@@ -267,6 +267,8 @@ let mapDataEditing=null;
 let mapDataSelectedLocation=null;
 let mapDataLoadRunning=false;
 let mapDataInitialCenterSet=false;
+let mapDataFarms=[];
+let mapDataFarmSearchQuery='';
 
 const tempMap={
   centerLat:-28.95,
@@ -1078,6 +1080,8 @@ function resetTempAccessForm(){
   tempMap.centerLat=-28.95;
   tempMap.centerLon=25.70;
   tempMap.zoom=11;
+
+  syncTempValidityPlacement();
 }
 
 function openTempAccessWorkspace(){
@@ -1117,6 +1121,26 @@ function closeTempAccessWorkspace(){
   setTempAccessView(false);
 }
 
+function syncTempValidityPlacement(){
+  const section=$('tempValiditySection');
+  const defaultSlot=$('tempValidityDefaultSlot');
+  const locationControls=document.querySelector('#radiusFields .location-controls');
+
+  if(!section || !defaultSlot || !locationControls){
+    return;
+  }
+
+  const radius=$('tempAccessScope')?.value==='radius';
+
+  if(radius){
+    locationControls.appendChild(section);
+    section.classList.add('temp-validity-inline');
+  }else{
+    defaultSlot.appendChild(section);
+    section.classList.remove('temp-validity-inline');
+  }
+}
+
 function initialiseTemporaryAccess(){
   const requiredIds=[
     'dashboardHome',
@@ -1146,6 +1170,8 @@ function initialiseTemporaryAccess(){
     'applyCoordinates',
     'tempRadiusKm',
     'tempValidity',
+    'tempValiditySection',
+    'tempValidityDefaultSlot',
     'useCurrentLocation',
     'locationStatus',
     'generateTempAccess',
@@ -1239,6 +1265,8 @@ function initialiseTemporaryAccess(){
             'hidden',
             !radius
           );
+
+        syncTempValidityPlacement();
 
         if(radius){
           requestAnimationFrame(
@@ -1364,6 +1392,8 @@ function initialiseTemporaryAccess(){
           );
       }
     );
+
+  syncTempValidityPlacement();
 
   $('generateTempAccess')
     .addEventListener(
@@ -1882,6 +1912,62 @@ function mapDataTypeLabel(type){
   }
 }
 
+const WATER_POINT_TYPES=[
+  'Tank',
+  'Cement Dam / Reservoir',
+  'Earth Dam',
+  'Borehole',
+  'Windpump',
+  'Water Trough',
+  'River / Stream',
+  'Other'
+];
+
+const WATER_QUALITY_OPTIONS=[
+  'Clean',
+  'Untreated / Dirty',
+  'Unknown'
+];
+
+const WATER_AVAILABILITY_OPTIONS=[
+  'Always Available',
+  'Usually Available',
+  'Sometimes Available',
+  'Rarely Available',
+  'Seasonal',
+  'Currently Unavailable',
+  'Unknown'
+];
+
+const GATE_TYPE_OPTIONS=[
+  'Main Entrance',
+  'Farm Gate',
+  'Cattle Gate',
+  'Security Gate',
+  'Boom Gate',
+  'Electric Gate',
+  'Other'
+];
+
+const GATE_ACCESS_OPTIONS=[
+  'Open / No Restriction',
+  'Usually Unlocked',
+  'Locked – Key Required',
+  'Locked – Code Required',
+  'Electric / Remote Access',
+  'Blocked / Not Usable',
+  'Unknown'
+];
+
+const LANDMARK_VISIBILITY_OPTIONS=[
+  'Clearly Visible',
+  'Usually Visible',
+  'Difficult to See',
+  'Not Visible at Night',
+  'Seasonal / May Change',
+  'Unknown'
+];
+
 function normaliseMapDataItem(item,kind){
   return {
     id:String(item?.id||''),
@@ -1891,7 +1977,10 @@ function normaliseMapDataItem(item,kind){
     longitude:Number(item?.longitude),
     status:item?.status||'',
     subtype:item?.subtype||'',
+    availability:item?.availability||'',
     notes:item?.notes||'',
+    farm_id:item?.farm_id?String(item.farm_id):'',
+    farm_name:item?.farm_name||'',
     updated_at:item?.updated_at||null,
     kind
   };
@@ -1902,6 +1991,118 @@ function mapDataAllItems(){
     ...mapDataFirePoints,
     ...mapDataPermanentMarkers
   ];
+}
+
+function normaliseFarmSearchText(value){
+  return String(value||'')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'')
+    .trim();
+}
+
+function levenshteinDistance(a,b){
+  if(a===b)return 0;
+  if(!a.length)return b.length;
+  if(!b.length)return a.length;
+
+  let previous=Array.from({length:b.length+1},(_,index)=>index);
+
+  for(let i=1;i<=a.length;i++){
+    const current=[i];
+    for(let j=1;j<=b.length;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      current[j]=Math.min(
+        current[j-1]+1,
+        previous[j]+1,
+        previous[j-1]+cost
+      );
+    }
+    previous=current;
+  }
+
+  return previous[b.length];
+}
+
+function farmNameMatchesQuery(farmName,query){
+  const farm=normaliseFarmSearchText(farmName);
+  const wanted=normaliseFarmSearchText(query);
+
+  if(!wanted)return true;
+  if(!farm)return false;
+  if(farm.includes(wanted) || wanted.includes(farm))return true;
+
+  const threshold=wanted.length<=4?1:Math.max(1,Math.floor(wanted.length*0.28));
+  return levenshteinDistance(farm,wanted)<=threshold;
+}
+
+function mapDataVisibleItems(){
+  const query=mapDataFarmSearchQuery.trim();
+  if(!query){
+    return mapDataAllItems();
+  }
+
+  return mapDataPermanentMarkers.filter(item=>
+    farmNameMatchesQuery(item.farm_name,query)
+  );
+}
+
+function fillSelectOptions(select,options,value,{blankLabel=null}={}){
+  select.innerHTML='';
+
+  if(blankLabel!==null){
+    const blank=document.createElement('option');
+    blank.value='';
+    blank.textContent=blankLabel;
+    select.appendChild(blank);
+  }
+
+  for(const optionValue of options){
+    const option=document.createElement('option');
+    option.value=optionValue;
+    option.textContent=optionValue;
+    select.appendChild(option);
+  }
+
+  if(value && !options.includes(value)){
+    const existing=document.createElement('option');
+    existing.value=value;
+    existing.textContent=`${value} (existing)`;
+    select.appendChild(existing);
+  }
+
+  if(value){
+    select.value=value;
+  }else if(blankLabel===null && options.length){
+    select.value=options[0];
+  }
+}
+
+function populateMapDataFarmSelect(selectedValue=''){
+  const select=$('mapDataFarm');
+  select.innerHTML='';
+
+  const none=document.createElement('option');
+  none.value='';
+  none.textContent='Not linked to a farm';
+  select.appendChild(none);
+
+  for(const farm of mapDataFarms){
+    const option=document.createElement('option');
+    option.value=farm.id;
+    option.textContent=farm.name||'Unnamed farm';
+    select.appendChild(option);
+  }
+
+  if(selectedValue && !mapDataFarms.some(farm=>farm.id===selectedValue)){
+    const existing=document.createElement('option');
+    existing.value=selectedValue;
+    existing.textContent='Linked farm';
+    select.appendChild(existing);
+  }
+
+  select.value=selectedValue||'';
 }
 
 function showMapDataError(message){
@@ -1924,6 +2125,10 @@ async function openMapDataWorkspace(){
 
   $('mapDataAreaLabel').textContent=area.name;
   mapDataInitialCenterSet=false;
+  mapDataFarmSearchQuery='';
+  if($('mapDataFarmSearch')){
+    $('mapDataFarmSearch').value='';
+  }
   setMapDataView(true);
   closeMapDataEditor();
 
@@ -1966,6 +2171,15 @@ async function refreshMapData({quiet=false}={}){
     }
 
     mapDataPayload=payload;
+    mapDataFarms=Array.isArray(payload.farms)
+      ?payload.farms
+        .map(farm=>({
+          id:String(farm?.id||''),
+          name:String(farm?.name||'').trim()
+        }))
+        .filter(farm=>farm.id && farm.name)
+      :[];
+
     mapDataPermanentMarkers=
       Array.isArray(payload.markers)
         ?payload.markers
@@ -2024,16 +2238,19 @@ async function refreshMapData({quiet=false}={}){
 
 function updateMapDataIncidentState(){
   const note=$('mapDataIncidentNote');
-  const fireButton=$('addFirePoint');
+  const fireButtons=[
+    $('addFirePoint'),
+    $('mobileAddFirePoint')
+  ].filter(Boolean);
 
   if(!mapDataActiveAccess){
     note.textContent=
       'No active Temporary Access. Fire Points can only be created during an active incident.';
-    fireButton.disabled=true;
+    fireButtons.forEach(button=>button.disabled=true);
     return;
   }
 
-  fireButton.disabled=false;
+  fireButtons.forEach(button=>button.disabled=false);
 
   if(mapDataActiveAccess.scope_type==='radius'){
     const radius=Number(mapDataActiveAccess.radius_km);
@@ -2047,12 +2264,32 @@ function updateMapDataIncidentState(){
 
 function renderMapDataItems(){
   const container=$('mapDataItems');
-  const items=mapDataAllItems();
+  const items=mapDataVisibleItems();
+  const status=$('mapDataSearchStatus');
+  const query=mapDataFarmSearchQuery.trim();
+
+  if(status){
+    if(query){
+      const matchingFarms=mapDataFarms
+        .filter(farm=>farmNameMatchesQuery(farm.name,query))
+        .map(farm=>farm.name);
+
+      if(matchingFarms.length){
+        status.textContent=`${items.length} marker${items.length===1?'':'s'} • ${matchingFarms.slice(0,3).join(', ')}`;
+      }else{
+        status.textContent='No close farm-name match.';
+      }
+    }else{
+      status.textContent='Filters live while you type. Small spelling mistakes are allowed.';
+    }
+  }
 
   if(!items.length){
     const empty=document.createElement('div');
     empty.className='mapdata-empty';
-    empty.textContent='No Map Data has been added for this Area yet.';
+    empty.textContent=query
+      ?'No markers match that farm name.'
+      :'No Map Data has been added for this Area yet.';
     container.replaceChildren(empty);
     return;
   }
@@ -2074,8 +2311,9 @@ function renderMapDataItems(){
     name.textContent=item.name||mapDataTypeLabel(item.marker_type);
 
     const detail=document.createElement('span');
+    const farmPrefix=item.farm_name?`${item.farm_name} • `:'';
     detail.textContent=
-      `${mapDataTypeLabel(item.marker_type)} • ${item.latitude.toFixed(5)}, ${item.longitude.toFixed(5)}`;
+      `${farmPrefix}${mapDataTypeLabel(item.marker_type)} • ${item.latitude.toFixed(5)}, ${item.longitude.toFixed(5)}`;
 
     const edit=document.createElement('span');
     edit.className='mapdata-item-edit';
@@ -2172,11 +2410,14 @@ function renderMapDataMap(){
 
   const markerFragment=document.createDocumentFragment();
 
-  for(const item of mapDataAllItems()){
+  for(const item of mapDataVisibleItems()){
     const p=latLonToWorld(item.latitude,item.longitude,z);
     const marker=document.createElement('button');
     marker.type='button';
     marker.className=`map-data-marker ${item.marker_type}`;
+    if(mapDataEditing?.id===item.id){
+      marker.classList.add('selected');
+    }
     marker.style.left=`${p.x-left}px`;
     marker.style.top=`${p.y-top}px`;
     marker.title=`${mapDataTypeLabel(item.marker_type)}: ${item.name||'Unnamed'}`;
@@ -2189,6 +2430,20 @@ function renderMapDataMap(){
     });
 
     markerFragment.appendChild(marker);
+  }
+
+  if(mapDataEditing && mapDataSelectedLocation){
+    const previewPoint=latLonToWorld(
+      mapDataSelectedLocation.lat,
+      mapDataSelectedLocation.lon,
+      z
+    );
+    const preview=document.createElement('span');
+    preview.className=`map-data-marker ${mapDataEditing.markerType} preview`;
+    preview.style.left=`${previewPoint.x-left}px`;
+    preview.style.top=`${previewPoint.y-top}px`;
+    preview.setAttribute('aria-hidden','true');
+    markerFragment.appendChild(preview);
   }
 
   markerLayer.replaceChildren(markerFragment);
@@ -2228,22 +2483,61 @@ function setMapDataSelectedLocation(point,{recenter=false}={}){
   renderMapDataMap();
 }
 
-function updateMapDataEditorFields(){
+function updateMapDataEditorFields(item=null){
   const type=$('mapDataType').value;
   const isFire=type==='fire';
+  const isWater=type==='water';
+  const isGate=type==='gate';
+  const isLandmark=type==='landmark';
 
+  $('mapDataFarmField').classList.toggle('hidden',isFire);
   $('mapDataStatusField').classList.toggle('hidden',isFire);
-  $('mapDataSubtypeField').classList.toggle('hidden',isFire);
+  $('mapDataSubtypeSelectField').classList.toggle('hidden',isFire||isLandmark);
+  $('mapDataSubtypeTextField').classList.toggle('hidden',!isLandmark);
+  $('mapDataAvailabilityField').classList.toggle('hidden',!isWater);
 
-  if(type==='water'){
-    $('mapDataStatusLabel').textContent='Water quality / status';
-    $('mapDataSubtypeLabel').textContent='Water point type';
-  }else if(type==='gate'){
-    $('mapDataStatusLabel').textContent='Status';
-    $('mapDataSubtypeLabel').textContent='Gate type';
-  }else if(type==='landmark'){
-    $('mapDataStatusLabel').textContent='Status';
-    $('mapDataSubtypeLabel').textContent='Landmark type';
+  populateMapDataFarmSelect(item?.farm_id||'');
+
+  if(isWater){
+    $('mapDataStatusLabel').textContent='Water quality';
+    $('mapDataSubtypeSelectLabel').textContent='Water point type';
+    fillSelectOptions(
+      $('mapDataStatus'),
+      WATER_QUALITY_OPTIONS,
+      item?.status||'Unknown'
+    );
+    fillSelectOptions(
+      $('mapDataSubtype'),
+      WATER_POINT_TYPES,
+      item?.subtype||'Tank'
+    );
+    fillSelectOptions(
+      $('mapDataAvailability'),
+      WATER_AVAILABILITY_OPTIONS,
+      item?.availability||'Unknown'
+    );
+  }else if(isGate){
+    $('mapDataStatusLabel').textContent='Access';
+    $('mapDataSubtypeSelectLabel').textContent='Gate type';
+    fillSelectOptions(
+      $('mapDataStatus'),
+      GATE_ACCESS_OPTIONS,
+      item?.status||'Unknown'
+    );
+    fillSelectOptions(
+      $('mapDataSubtype'),
+      GATE_TYPE_OPTIONS,
+      item?.subtype||'Farm Gate'
+    );
+  }else if(isLandmark){
+    $('mapDataStatusLabel').textContent='Visibility';
+    $('mapDataSubtypeTextLabel').textContent='Landmark type';
+    fillSelectOptions(
+      $('mapDataStatus'),
+      LANDMARK_VISIBILITY_OPTIONS,
+      item?.status||'Unknown'
+    );
+    $('mapDataSubtypeText').value=item?.subtype||'';
   }
 }
 
@@ -2257,7 +2551,8 @@ function openMapDataEditor(type,item=null){
   mapDataEditing={
     kind,
     id:item?.id||null,
-    markerType:type
+    markerType:type,
+    original:item||null
   };
 
   mapDataSelectedLocation=null;
@@ -2270,8 +2565,6 @@ function openMapDataEditor(type,item=null){
   $('mapDataType').value=type;
   $('mapDataType').disabled=true;
   $('mapDataName').value=item?.name||'';
-  $('mapDataStatus').value=item?.status||'';
-  $('mapDataSubtype').value=item?.subtype||'';
   $('mapDataNotes').value=item?.notes||'';
   $('mapDataEditorError').textContent='';
   $('mapDataEditorError').classList.add('hidden');
@@ -2289,7 +2582,7 @@ function openMapDataEditor(type,item=null){
     $('mapDataCoordinates').value='';
   }
 
-  updateMapDataEditorFields();
+  updateMapDataEditorFields(item);
 }
 
 function closeMapDataEditor(){
@@ -2304,6 +2597,7 @@ function closeMapDataEditor(){
   $('mapDataEditorError').textContent='';
   $('mapDataEditorError').classList.add('hidden');
   $('mapDataType').disabled=false;
+  renderMapDataMap();
 }
 
 function showMapDataEditorError(message){
@@ -2362,7 +2656,13 @@ async function saveCurrentMapDataItem(){
           p_latitude:mapDataSelectedLocation.lat,
           p_longitude:mapDataSelectedLocation.lon,
           p_status:$('mapDataStatus').value.trim(),
-          p_subtype:$('mapDataSubtype').value.trim(),
+          p_subtype:type==='landmark'
+            ?$('mapDataSubtypeText').value.trim()
+            :$('mapDataSubtype').value.trim(),
+          p_availability:type==='water'
+            ?$('mapDataAvailability').value.trim()
+            :null,
+          p_farm_id:$('mapDataFarm').value||null,
           p_notes:$('mapDataNotes').value.trim(),
           p_marker_id:mapDataEditing.id
         }
@@ -2517,6 +2817,16 @@ function initialiseMapData(){
   $('addGate').addEventListener('click',()=>openMapDataEditor('gate'));
   $('addLandmark').addEventListener('click',()=>openMapDataEditor('landmark'));
   $('addFirePoint').addEventListener('click',()=>openMapDataEditor('fire'));
+  $('mobileAddWaterPoint').addEventListener('click',()=>openMapDataEditor('water'));
+  $('mobileAddGate').addEventListener('click',()=>openMapDataEditor('gate'));
+  $('mobileAddLandmark').addEventListener('click',()=>openMapDataEditor('landmark'));
+  $('mobileAddFirePoint').addEventListener('click',()=>openMapDataEditor('fire'));
+
+  $('mapDataFarmSearch').addEventListener('input',event=>{
+    mapDataFarmSearchQuery=event.target.value||'';
+    renderMapDataItems();
+    renderMapDataMap();
+  });
 
   $('cancelMapDataEdit').addEventListener('click',closeMapDataEditor);
   $('cancelMapDataEditBottom').addEventListener('click',closeMapDataEditor);
