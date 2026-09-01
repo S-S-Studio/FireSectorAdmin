@@ -284,39 +284,18 @@
             </div>
 
             <div id="radiusFields" class="radius-workspace hidden">
-              <div class="map-panel">
-                <div class="map-toolbar">
-                  <strong>Select start location</strong>
-                  <span class="muted">Tap the map or paste coordinates</span>
-                </div>
-
-                <div id="coordinateMap" class="coordinate-map" aria-label="Select location on map">
-                  <div id="mapTiles" class="map-tiles"></div>
-                  <div id="mapRadiusOverlay" class="map-radius-overlay hidden"></div>
-                  <div id="mapSelectionMarker" class="map-selection-marker hidden"></div>
-
-                  <div class="map-zoom-controls">
-                    <button id="mapZoomIn" type="button" aria-label="Zoom in">+</button>
-                    <button id="mapZoomOut" type="button" aria-label="Zoom out">−</button>
-                  </div>
-
-                  <div class="map-attribution">© OpenStreetMap contributors</div>
-                </div>
-              </div>
-
               <div class="location-controls">
                 <label>
                   Coordinates
-                  <div class="coordinate-row">
-                    <input
-                      id="tempCoordinates"
-                      type="text"
-                      autocomplete="off"
-                      placeholder="-28.9624455, 25.7132135"
-                    >
-                    <button id="applyCoordinates" class="secondary" type="button">Set Point</button>
-                  </div>
+                  <input
+                    id="tempCoordinates"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="-28.9624455, 25.7132135"
+                  >
                 </label>
+
+                <button id="openTempMapPicker" class="secondary map-picker-launch" type="button">Set from map</button>
 
                 <div class="location-row">
                   <button id="useCurrentLocation" class="secondary" type="button">Use Current Location</button>
@@ -404,7 +383,7 @@
         <div id="mapDataError" class="error hidden"></div>
 
         <div class="mapdata-layout">
-          <section class="workspace-panel mapdata-map-panel">
+          <section id="mapDataMapPanel" class="workspace-panel mapdata-map-panel">
             <div class="mapdata-mobile-type-picker" aria-label="Add map item">
               <span class="mapdata-mobile-type-label">Marker type</span>
               <div class="mapdata-add-grid">
@@ -418,7 +397,6 @@
             <div class="map-toolbar mapdata-toolbar">
               <div>
                 <strong>Area Map</strong>
-                <span class="muted">Tap the map while adding or editing to set the location</span>
               </div>
               <div class="mapdata-legend" aria-label="Marker colours">
                 <span><i class="legend-dot water"></i>Water</span>
@@ -439,6 +417,11 @@
               </div>
 
               <div class="map-attribution">© OpenStreetMap contributors</div>
+            </div>
+
+            <div id="mapDataPickerActions" class="fullscreen-picker-actions hidden">
+              <button id="cancelMapDataMapPicker" class="secondary" type="button">Cancel</button>
+              <button id="confirmMapDataMapPicker" type="button">Set</button>
             </div>
           </section>
 
@@ -499,11 +482,10 @@
 
                 <label>
                   Coordinates
-                  <div class="coordinate-row">
-                    <input id="mapDataCoordinates" type="text" autocomplete="off" placeholder="-28.9624455, 25.7132135">
-                    <button id="setMapDataCoordinates" class="secondary" type="button">Set Point</button>
-                  </div>
+                  <input id="mapDataCoordinates" type="text" autocomplete="off" placeholder="-28.9624455, 25.7132135">
                 </label>
+
+                <button id="openMapDataMapPicker" class="secondary map-picker-launch" type="button">Set from map</button>
 
                 <div class="location-row">
                   <button id="useMapDataCurrentLocation" class="secondary" type="button">Use Current Location</button>
@@ -559,6 +541,41 @@
   </div>
 </div>
 
+
+<div id="tempMapPickerOverlay" class="fullscreen-map-picker hidden" aria-modal="true" role="dialog" aria-label="Set Temporary Access location">
+  <div id="coordinateMap" class="coordinate-map fullscreen-coordinate-map" aria-label="Select location on map">
+    <div id="mapTiles" class="map-tiles"></div>
+    <div id="mapRadiusOverlay" class="map-radius-overlay hidden"></div>
+    <div id="mapSelectionMarker" class="map-selection-marker hidden"></div>
+    <div class="map-zoom-controls">
+      <button id="mapZoomIn" type="button" aria-label="Zoom in">+</button>
+      <button id="mapZoomOut" type="button" aria-label="Zoom out">−</button>
+    </div>
+    <div class="map-attribution">© OpenStreetMap contributors</div>
+  </div>
+  <div class="fullscreen-picker-actions">
+    <button id="cancelTempMapPicker" class="secondary" type="button">Cancel</button>
+    <button id="confirmTempMapPicker" type="button">Set</button>
+  </div>
+</div>
+
+<div id="extendMapPickerOverlay" class="fullscreen-map-picker hidden" aria-modal="true" role="dialog" aria-label="Set Temporary Access location">
+  <div id="extendAccessMap" class="coordinate-map fullscreen-coordinate-map" aria-label="Change Temporary Access centre and radius">
+    <div id="extendAccessMapTiles" class="map-tiles"></div>
+    <div id="extendAccessRadiusOverlay" class="map-radius-overlay hidden"></div>
+    <div id="extendAccessSelectionMarker" class="map-selection-marker hidden"></div>
+    <div class="map-zoom-controls">
+      <button id="extendAccessZoomIn" type="button" aria-label="Zoom in">+</button>
+      <button id="extendAccessZoomOut" type="button" aria-label="Zoom out">−</button>
+    </div>
+    <div class="map-attribution">© OpenStreetMap contributors</div>
+  </div>
+  <div class="fullscreen-picker-actions">
+    <button id="cancelExtendMapPicker" class="secondary" type="button">Cancel</button>
+    <button id="confirmExtendMapPicker" type="button">Set</button>
+  </div>
+</div>
+
 <div id="extendAccessModal" class="modal-backdrop hidden">
   <section class="modal-card extend-modal" role="dialog" aria-modal="true" aria-labelledby="extendAccessTitle">
     <div class="modal-head">
@@ -588,34 +605,13 @@
     </label>
 
     <div id="extendRadiusFields" class="extend-radius-fields hidden">
-      <div class="extend-map-heading">
-        <div>
-          <strong>Access area</strong>
-          <span class="muted">Tap the map to move the centre point</span>
-        </div>
-      </div>
-
-      <div id="extendAccessMap" class="coordinate-map extend-access-map" aria-label="Change Temporary Access centre and radius">
-        <div id="extendAccessMapTiles" class="map-tiles"></div>
-        <div id="extendAccessRadiusOverlay" class="map-radius-overlay hidden"></div>
-        <div id="extendAccessSelectionMarker" class="map-selection-marker hidden"></div>
-
-        <div class="map-zoom-controls">
-          <button id="extendAccessZoomIn" type="button" aria-label="Zoom in">+</button>
-          <button id="extendAccessZoomOut" type="button" aria-label="Zoom out">−</button>
-        </div>
-
-        <div class="map-attribution">© OpenStreetMap contributors</div>
-      </div>
-
       <div class="extend-radius-controls">
         <label>
           Coordinates
-          <div class="coordinate-row">
-            <input id="extendAccessCoordinates" type="text" autocomplete="off" placeholder="-28.9624455, 25.7132135">
-            <button id="setExtendAccessCoordinates" class="secondary" type="button">Set Point</button>
-          </div>
+          <input id="extendAccessCoordinates" type="text" autocomplete="off" placeholder="-28.9624455, 25.7132135">
         </label>
+
+        <button id="openExtendMapPicker" class="secondary map-picker-launch" type="button">Set from map</button>
 
         <div class="location-row">
           <button id="useExtendCurrentLocation" class="secondary" type="button">Use Current Location</button>
@@ -626,8 +622,6 @@
           Radius (km)
           <input id="extendAccessRadiusKm" type="number" min="0.1" max="500" step="0.1">
         </label>
-
-        <p class="muted extend-radius-note">All existing Fire Points must remain inside the updated radius.</p>
       </div>
     </div>
 

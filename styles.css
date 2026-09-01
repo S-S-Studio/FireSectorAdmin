@@ -742,3 +742,108 @@ input::selection{
   .extend-radius-fields{grid-template-columns:1fr}
   .extend-access-map{height:300px;min-height:300px}
 }
+
+/* V019 - shared FireSector focus state + full-screen location pickers */
+input:focus,
+select:focus,
+textarea:focus,
+.mapdata-form textarea:focus{
+  border-color:#175cd3!important;
+  box-shadow:0 0 0 3px #dbeafe!important;
+}
+
+.radius-workspace{
+  display:block;
+  padding:18px 0;
+}
+
+.radius-workspace .location-controls{
+  max-width:520px;
+}
+
+.map-picker-launch{
+  width:100%;
+}
+
+.fullscreen-map-picker{
+  position:fixed;
+  inset:0;
+  z-index:220;
+  background:#dce8ef;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) auto;
+}
+
+.fullscreen-coordinate-map{
+  width:100%;
+  height:100%;
+  min-height:0;
+  border:0;
+  border-radius:0;
+}
+
+.fullscreen-picker-actions{
+  z-index:230;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  padding:12px max(14px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+  background:#fff;
+  border-top:1px solid #e4e7ec;
+  box-shadow:0 -8px 22px rgba(16,24,40,.12);
+}
+
+.fullscreen-picker-actions button{
+  min-width:120px;
+}
+
+.mapdata-map-panel.location-picking{
+  position:fixed;
+  inset:0;
+  z-index:220;
+  width:100%;
+  height:100%;
+  max-width:none;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:#dce8ef;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) auto;
+}
+
+.mapdata-map-panel.location-picking .mapdata-mobile-type-picker,
+.mapdata-map-panel.location-picking .mapdata-toolbar{
+  display:none!important;
+}
+
+.mapdata-map-panel.location-picking .map-data-map{
+  width:100%;
+  height:100%;
+  min-height:0;
+  border:0;
+  border-radius:0;
+}
+
+.mapdata-map-panel.location-picking #mapDataPickerActions{
+  display:flex!important;
+}
+
+.extend-radius-fields{
+  display:block;
+}
+
+.extend-radius-controls{
+  max-width:520px;
+}
+
+@media(max-width:600px){
+  .fullscreen-picker-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .fullscreen-picker-actions button{
+    width:100%;
+    min-width:0;
+  }
+}

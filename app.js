@@ -1,4 +1,4 @@
-/* FireSector Admin app.js V018 */
+/* FireSector Admin app.js V019 */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
@@ -281,6 +281,10 @@ const tempMap={
   startCenterWorld:null
 };
 
+let tempPickerOriginalLocation=null;
+let extendPickerOriginalLocation=null;
+let mapDataPickerOriginalLocation=null;
+
 let extendAccessLocation=null;
 const extendAccessMap={
   centerLat:-28.95,
@@ -339,11 +343,10 @@ function buildFireSectorShareLink(accessCode){
   const code=normaliseSharedAccessCode(accessCode);
   if(!code)return '';
 
-  const url=new URL(window.location.href);
+  const url=new URL('../FireSector_Responder/',window.location.href);
   url.search='';
   url.hash='';
-  url.searchParams.set('open','firesector');
-  url.hash=new URLSearchParams({code}).toString();
+  url.searchParams.set('code',code);
   return url.toString();
 }
 
@@ -1196,6 +1199,8 @@ function openTempAccessWorkspace(){
 }
 
 function closeTempAccessWorkspace(){
+  $('tempMapPickerOverlay')?.classList.add('hidden');
+  tempPickerOriginalLocation=null;
   setTempAccessView(false);
 }
 
@@ -1245,7 +1250,10 @@ function initialiseTemporaryAccess(){
     'mapZoomIn',
     'mapZoomOut',
     'tempCoordinates',
-    'applyCoordinates',
+    'openTempMapPicker',
+    'tempMapPickerOverlay',
+    'cancelTempMapPicker',
+    'confirmTempMapPicker',
     'tempRadiusKm',
     'tempValidity',
     'tempValiditySection',
@@ -1366,48 +1374,57 @@ function initialiseTemporaryAccess(){
       }
     );
 
-  $('applyCoordinates')
-    .addEventListener(
-      'click',
-      ()=>{
-        const point=
-          parseCoordinates(
-            $('tempCoordinates')
-              .value
-          );
+  const applyTypedTempCoordinates=()=>{
+    const value=$('tempCoordinates').value.trim();
+    if(!value){
+      return;
+    }
 
-        if(!point){
-          $('locationStatus')
-            .textContent=
-              'Paste coordinates like -28.9624455, 25.7132135';
+    const point=parseCoordinates(value);
+    if(!point){
+      return;
+    }
 
-          return;
-        }
+    setSelectedTempLocation(point);
+    $('locationStatus').textContent='';
+  };
 
-        $('locationStatus')
-          .textContent=
-            'Location selected.';
+  $('tempCoordinates').addEventListener('change',applyTypedTempCoordinates);
+  $('tempCoordinates').addEventListener('blur',applyTypedTempCoordinates);
 
-        setSelectedTempLocation(
-          point
-        );
-      }
-    );
+  $('openTempMapPicker').addEventListener('click',()=>{
+    tempPickerOriginalLocation=selectedTempLocation
+      ?{...selectedTempLocation}
+      :null;
 
-  $('tempCoordinates')
-    .addEventListener(
-      'keydown',
-      event=>{
-        if(
-          event.key==='Enter'
-        ){
-          event.preventDefault();
+    if(selectedTempLocation){
+      tempMap.centerLat=selectedTempLocation.lat;
+      tempMap.centerLon=selectedTempLocation.lon;
+    }
 
-          $('applyCoordinates')
-            .click();
-        }
-      }
-    );
+    $('tempMapPickerOverlay').classList.remove('hidden');
+    requestAnimationFrame(renderTempMap);
+  });
+
+  $('cancelTempMapPicker').addEventListener('click',()=>{
+    selectedTempLocation=tempPickerOriginalLocation
+      ?{...tempPickerOriginalLocation}
+      :null;
+    $('tempCoordinates').value=selectedTempLocation
+      ?formatCoordinates(selectedTempLocation)
+      :'';
+    $('tempMapPickerOverlay').classList.add('hidden');
+    tempPickerOriginalLocation=null;
+  });
+
+  $('confirmTempMapPicker').addEventListener('click',()=>{
+    if(!selectedTempLocation){
+      return;
+    }
+    $('tempMapPickerOverlay').classList.add('hidden');
+    tempPickerOriginalLocation=null;
+    $('locationStatus').textContent='';
+  });
 
   $('useCurrentLocation')
     .addEventListener(
@@ -2058,24 +2075,52 @@ function initialiseExtendAccessMap(){
 
   $('extendAccessRadiusKm').addEventListener('input',renderExtendAccessMap);
 
-  $('setExtendAccessCoordinates').addEventListener('click',()=>{
-    const point=parseCoordinates($('extendAccessCoordinates').value);
-
-    if(!point){
-      $('extendAccessLocationStatus').textContent=
-        'Enter coordinates like -28.9624455, 25.7132135';
+  const applyTypedExtendCoordinates=()=>{
+    const value=$('extendAccessCoordinates').value.trim();
+    if(!value){
       return;
     }
-
+    const point=parseCoordinates(value);
+    if(!point){
+      return;
+    }
     setExtendAccessLocation(point);
-    $('extendAccessLocationStatus').textContent='Access centre selected.';
+    $('extendAccessLocationStatus').textContent='';
+  };
+
+  $('extendAccessCoordinates').addEventListener('change',applyTypedExtendCoordinates);
+  $('extendAccessCoordinates').addEventListener('blur',applyTypedExtendCoordinates);
+
+  $('openExtendMapPicker').addEventListener('click',()=>{
+    extendPickerOriginalLocation=extendAccessLocation
+      ?{...extendAccessLocation}
+      :null;
+    if(extendAccessLocation){
+      extendAccessMap.centerLat=extendAccessLocation.lat;
+      extendAccessMap.centerLon=extendAccessLocation.lon;
+    }
+    $('extendMapPickerOverlay').classList.remove('hidden');
+    requestAnimationFrame(renderExtendAccessMap);
   });
 
-  $('extendAccessCoordinates').addEventListener('keydown',event=>{
-    if(event.key==='Enter'){
-      event.preventDefault();
-      $('setExtendAccessCoordinates').click();
+  $('cancelExtendMapPicker').addEventListener('click',()=>{
+    extendAccessLocation=extendPickerOriginalLocation
+      ?{...extendPickerOriginalLocation}
+      :null;
+    $('extendAccessCoordinates').value=extendAccessLocation
+      ?formatCoordinates(extendAccessLocation)
+      :'';
+    $('extendMapPickerOverlay').classList.add('hidden');
+    extendPickerOriginalLocation=null;
+  });
+
+  $('confirmExtendMapPicker').addEventListener('click',()=>{
+    if(!extendAccessLocation){
+      return;
     }
+    $('extendMapPickerOverlay').classList.add('hidden');
+    extendPickerOriginalLocation=null;
+    $('extendAccessLocationStatus').textContent='';
   });
 
   $('useExtendCurrentLocation').addEventListener('click',()=>{
@@ -2169,6 +2214,8 @@ function openExtendAccessModal(){
 
 function closeExtendAccessModal(){
   extendAccessMap.dragging=false;
+  $('extendMapPickerOverlay').classList.add('hidden');
+  extendPickerOriginalLocation=null;
   $('extendAccessModal').classList.add('hidden');
 }
 
@@ -2733,7 +2780,7 @@ function renderMapDataItems(){
         status.textContent='No close farm-name match.';
       }
     }else{
-      status.textContent='Filters live while you type. Small spelling mistakes are allowed.';
+      status.textContent='';
     }
   }
 
@@ -2879,6 +2926,13 @@ function renderMapDataMap(){
     marker.addEventListener('pointerdown',event=>event.stopPropagation());
     marker.addEventListener('click',event=>{
       event.stopPropagation();
+      if(isMapDataLocationPickerOpen()){
+        setMapDataSelectedLocation(
+          {lat:item.latitude,lon:item.longitude},
+          {recenter:false}
+        );
+        return;
+      }
       openMapDataEditor(item.marker_type,item);
     });
 
@@ -3045,6 +3099,9 @@ function closeMapDataEditor(){
 
   mapDataEditing=null;
   mapDataSelectedLocation=null;
+  mapDataPickerOriginalLocation=null;
+  $('mapDataMapPanel')?.classList.remove('location-picking');
+  $('mapDataPickerActions')?.classList.add('hidden');
   $('mapDataEditor').classList.add('hidden');
   $('mapDataListView').classList.remove('hidden');
   $('mapDataEditorError').textContent='';
@@ -3173,6 +3230,53 @@ async function deleteCurrentMapDataItem(){
   }
 }
 
+function isMapDataLocationPickerOpen(){
+  return $('mapDataMapPanel')?.classList.contains('location-picking')===true;
+}
+
+function openMapDataLocationPicker(){
+  if(!mapDataEditing){
+    return;
+  }
+
+  mapDataPickerOriginalLocation=mapDataSelectedLocation
+    ?{...mapDataSelectedLocation}
+    :null;
+
+  if(mapDataSelectedLocation){
+    mapDataMap.centerLat=mapDataSelectedLocation.lat;
+    mapDataMap.centerLon=mapDataSelectedLocation.lon;
+  }
+
+  $('mapDataMapPanel').classList.add('location-picking');
+  $('mapDataPickerActions').classList.remove('hidden');
+  requestAnimationFrame(renderMapDataMap);
+}
+
+function cancelMapDataLocationPicker(){
+  mapDataSelectedLocation=mapDataPickerOriginalLocation
+    ?{...mapDataPickerOriginalLocation}
+    :null;
+  $('mapDataCoordinates').value=mapDataSelectedLocation
+    ?formatCoordinates(mapDataSelectedLocation)
+    :'';
+  $('mapDataMapPanel').classList.remove('location-picking');
+  $('mapDataPickerActions').classList.add('hidden');
+  mapDataPickerOriginalLocation=null;
+  renderMapDataMap();
+}
+
+function confirmMapDataLocationPicker(){
+  if(!mapDataSelectedLocation){
+    return;
+  }
+  $('mapDataMapPanel').classList.remove('location-picking');
+  $('mapDataPickerActions').classList.add('hidden');
+  mapDataPickerOriginalLocation=null;
+  $('mapDataLocationStatus').textContent='';
+  renderMapDataMap();
+}
+
 function initialiseMapDataMap(){
   const map=$('mapDataMap');
 
@@ -3223,7 +3327,7 @@ function initialiseMapDataMap(){
 
     mapDataMap.dragging=false;
 
-    if(!mapDataMap.moved && mapDataEditing){
+    if(!mapDataMap.moved && mapDataEditing && isMapDataLocationPickerOpen()){
       setMapDataSelectedLocation(
         mapDataPointFromEvent(event)
       );
@@ -3286,24 +3390,25 @@ function initialiseMapData(){
   $('saveMapDataItem').addEventListener('click',saveCurrentMapDataItem);
   $('deleteMapDataItem').addEventListener('click',deleteCurrentMapDataItem);
 
-  $('setMapDataCoordinates').addEventListener('click',()=>{
-    const point=parseCoordinates($('mapDataCoordinates').value);
-
-    if(!point){
-      $('mapDataLocationStatus').textContent=
-        'Enter coordinates like -28.9624455, 25.7132135';
+  const applyTypedMapDataCoordinates=()=>{
+    const value=$('mapDataCoordinates').value.trim();
+    if(!value){
       return;
     }
-
-    setMapDataSelectedLocation(point,{recenter:true});
-  });
-
-  $('mapDataCoordinates').addEventListener('keydown',event=>{
-    if(event.key==='Enter'){
-      event.preventDefault();
-      $('setMapDataCoordinates').click();
+    const point=parseCoordinates(value);
+    if(!point){
+      return;
     }
-  });
+    setMapDataSelectedLocation(point,{recenter:true});
+    $('mapDataLocationStatus').textContent='';
+  };
+
+  $('mapDataCoordinates').addEventListener('change',applyTypedMapDataCoordinates);
+  $('mapDataCoordinates').addEventListener('blur',applyTypedMapDataCoordinates);
+
+  $('openMapDataMapPicker').addEventListener('click',openMapDataLocationPicker);
+  $('cancelMapDataMapPicker').addEventListener('click',cancelMapDataLocationPicker);
+  $('confirmMapDataMapPicker').addEventListener('click',confirmMapDataLocationPicker);
 
   $('useMapDataCurrentLocation').addEventListener('click',()=>{
     if(!navigator.geolocation){
@@ -3423,11 +3528,6 @@ function initialiseFireSectorOpenBridge(){
 }
 
 async function startup(){
-  const sharedCode=sharedAccessCodeFromLocation();
-  if(sharedCode){
-    showFireSectorOpenBridge(sharedCode);
-    return;
-  }
   show('loading');
   clearSession();
 
