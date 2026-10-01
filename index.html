@@ -137,9 +137,9 @@
         <span class="navSymbol">⌖</span>
         <span>Map Data</span>
       </button>
-      <button class="nav" disabled>
+      <button id="districtsNav" class="nav" type="button" disabled>
         <span class="navSymbol">◫</span>
-        <span>Areas</span>
+        <span>Districts</span>
       </button>
     </nav>
 
@@ -154,7 +154,7 @@
         </div>
 
         <label class="district">
-          Current area
+          Current district
           <select id="districtSelect"></select>
         </label>
       </div>
@@ -213,7 +213,7 @@
             </div>
 
             <div>
-              <span>Access area</span>
+              <span>Access district</span>
               <strong id="activeAccessScope">—</strong>
             </div>
           </div>
@@ -238,9 +238,9 @@
         <article class="admin-card">
           <div class="admin-card-main">
             <div class="featureIcon amber">◫</div>
-            <h3>Areas</h3>
+            <h3>Districts</h3>
           </div>
-          <button class="secondary manage-btn" disabled>Manage</button>
+          <button id="manageDistrictsBtn" class="secondary manage-btn" type="button" disabled>Manage</button>
         </article>
 
       </section>
@@ -255,7 +255,7 @@
           <strong id="adminEmail">—</strong>
         </div>
         <div>
-          <span>Area access</span>
+          <span>District access</span>
           <strong id="districtCount">—</strong>
         </div>
       </section>
@@ -275,9 +275,9 @@
           <section class="workspace-panel">
             <div class="form-section first">
               <label>
-                Access area
+                Access district
                 <select id="tempAccessScope">
-                  <option value="district">Entire current area</option>
+                  <option value="district">Entire current district</option>
                   <option value="radius">Radius from a location</option>
                 </select>
               </label>
@@ -343,7 +343,7 @@
 
               <div class="result-grid">
                 <div>
-                  <span>Area</span>
+                  <span>District</span>
                   <strong id="generatedAccessArea">—</strong>
                 </div>
                 <div>
@@ -370,6 +370,36 @@
         </div>
       </section>
 
+      <section id="districtsWorkspace" class="districts-workspace hidden">
+        <div class="workspace-head">
+          <div>
+            <button id="closeDistricts" class="workspace-back" type="button">&lt; Dashboard</button>
+            <h2>Districts</h2>
+            <p class="muted">District setup</p>
+          </div>
+        </div>
+        <div class="workspace-panel district-setup-panel">
+          <div class="district-form-grid">
+            <label>
+              District ID
+              <input id="districtSetupId" type="text" autocomplete="off" placeholder="District ID">
+            </label>
+            <label>
+              District Name
+              <input id="districtSetupName" type="text" autocomplete="off" placeholder="District name">
+            </label>
+          </div>
+          <div class="district-boundary-placeholder">
+            <strong>District Boundary</strong>
+            <span>Boundary selection will be connected in the next District setup phase.</span>
+          </div>
+          <div class="district-admin-placeholder">
+            <strong>District Administrators</strong>
+            <span>Administrator assignment will be connected in the next District setup phase.</span>
+          </div>
+        </div>
+      </section>
+
       <section id="mapDataWorkspace" class="mapdata-workspace hidden">
         <div class="workspace-head">
           <div>
@@ -384,19 +414,13 @@
 
         <div class="mapdata-layout">
           <section id="mapDataMapPanel" class="workspace-panel mapdata-map-panel">
-            <div class="mapdata-mobile-type-picker" aria-label="Add map item">
-              <span class="mapdata-mobile-type-label">Marker type</span>
-              <div class="mapdata-add-grid">
-                <button id="mobileAddWaterPoint" class="mapdata-add water" type="button">+ Water</button>
-                <button id="mobileAddGate" class="mapdata-add gate" type="button">+ Gate</button>
-                <button id="mobileAddLandmark" class="mapdata-add landmark" type="button">+ Landmark</button>
-                <button id="mobileAddFirePoint" class="mapdata-add fire" type="button">+ Fire</button>
-              </div>
+            <div class="mapdata-mobile-type-picker" aria-label="Add marker">
+              <button id="mobileAddMarker" class="mapdata-add-marker" type="button">Add Marker</button>
             </div>
 
             <div class="map-toolbar mapdata-toolbar">
               <div>
-                <strong>Area Map</strong>
+                <strong>District Map</strong>
               </div>
               <div class="mapdata-legend" aria-label="Marker colours">
                 <span><i class="legend-dot water"></i>Water</span>
@@ -434,11 +458,8 @@
                 </div>
               </div>
 
-              <div class="mapdata-add-grid mapdata-desktop-add-grid">
-                <button id="addWaterPoint" class="mapdata-add water" type="button">+ Water</button>
-                <button id="addGate" class="mapdata-add gate" type="button">+ Gate</button>
-                <button id="addLandmark" class="mapdata-add landmark" type="button">+ Landmark</button>
-                <button id="addFirePoint" class="mapdata-add fire" type="button">+ Fire</button>
+              <div class="mapdata-desktop-add-grid">
+                <button id="addMarker" class="mapdata-add-marker" type="button">Add Marker</button>
               </div>
 
               <label class="mapdata-search">
@@ -459,14 +480,14 @@
               <div class="mapdata-editor-head">
                 <div>
                   <span id="mapDataEditorKicker" class="editor-kicker">MAP ITEM</span>
-                  <h3 id="mapDataEditorTitle">Add Map Item</h3>
+                  <h3 id="mapDataEditorTitle">Add Marker</h3>
                 </div>
                 <button id="cancelMapDataEdit" class="icon-button" type="button" aria-label="Close">×</button>
               </div>
 
               <div class="mapdata-form">
                 <label>
-                  Type
+                  Marker Type *
                   <select id="mapDataType">
                     <option value="water">Water Point</option>
                     <option value="gate">Gate</option>
@@ -476,12 +497,12 @@
                 </label>
 
                 <label>
-                  Name
+                  Name *
                   <input id="mapDataName" type="text" maxlength="120" autocomplete="off">
                 </label>
 
                 <label>
-                  Coordinates
+                  Coordinates *
                   <input id="mapDataCoordinates" type="text" autocomplete="off" placeholder="-28.9624455, 25.7132135">
                 </label>
 

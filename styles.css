@@ -847,3 +847,73 @@ textarea:focus,
     min-width:0;
   }
 }
+
+/* V020 - unified marker entry + District management */
+.mapdata-add-marker{
+  width:100%;
+  background:#175cd3;
+  color:#fff;
+  border:1px solid #175cd3;
+  padding:11px 14px;
+}
+.mapdata-add-marker:hover{background:#1849a9}
+.mapdata-desktop-add-grid{margin-bottom:16px}
+
+/* Desktop uses the permanent Map Data map directly for location selection. */
+.mapdata-form .map-picker-launch{display:none}
+.mapdata-form label:has(#mapDataCoordinates)::after{
+  content:'Click the map or enter coordinates.';
+  display:block;
+  margin-top:5px;
+  color:#667085;
+  font-size:11px;
+}
+
+.districts-workspace{min-height:calc(100vh - 124px)}
+.district-setup-panel{max-width:980px}
+.district-form-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:16px}
+.district-boundary-placeholder,
+.district-admin-placeholder{
+  display:grid;
+  gap:5px;
+  margin-top:18px;
+  padding:20px;
+  min-height:110px;
+  align-content:center;
+  border:1px dashed #b8c2cc;
+  border-radius:14px;
+  background:#f8fafc;
+}
+.district-boundary-placeholder span,
+.district-admin-placeholder span{color:#667085;font-size:12px}
+
+@media(max-width:600px){
+  .mapdata-form .map-picker-launch{display:block}
+  .mapdata-form label:has(#mapDataCoordinates)::after{content:'Enter coordinates or use Set from map.'}
+  .district-form-grid{grid-template-columns:1fr}
+}
+
+/* Desktop Temporary Access keeps its map permanently visible for radius selection. */
+@media(min-width:601px){
+  #openTempMapPicker{display:none}
+  #tempMapPickerOverlay.embedded-temp-map{
+    position:relative;
+    inset:auto;
+    z-index:auto;
+    width:100%;
+    height:390px;
+    min-height:390px;
+    margin-top:18px;
+    border:1px solid #d0d5dd;
+    border-radius:14px;
+    overflow:hidden;
+    background:#dce8ef;
+    display:block;
+  }
+  #tempMapPickerOverlay.embedded-temp-map .fullscreen-coordinate-map{
+    width:100%;
+    height:100%;
+    min-height:390px;
+  }
+  #tempMapPickerOverlay.embedded-temp-map .fullscreen-picker-actions{display:none}
+}

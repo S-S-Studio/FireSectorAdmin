@@ -1,4 +1,4 @@
-/* FireSector Admin app.js V019 */
+/* FireSector Admin app.js V020 */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
@@ -10,6 +10,7 @@ const screens=['openFireSector','loading','startupError','login','denied','dashb
 let accessToken=null;
 let currentUser=null;
 let installPrompt=null;
+let currentAdminIsMaster=false;
 
 function show(id){
   screens.forEach(x=>$(x).classList.add('hidden'));
@@ -129,18 +130,22 @@ async function loadAdminContext(user){
 }
 
 function populateDashboard(user,admin,districts){
+  currentAdminIsMaster=admin.is_super_admin===true;
   $('adminName').textContent=admin.is_super_admin
     ?'FireSector Master Administrator'
-    :'FireSector Admin';
+    :'FireSector District Administrator';
   $('adminEmail').textContent=user.email||'—';
-  $('role').textContent=admin.is_super_admin?'Master Administrator':'Admin';
+  $('role').textContent=admin.is_super_admin?'Master Administrator':'District Administrator';
 
   const signedInDisplayName=admin.is_super_admin
     ?'FireSector Master Administrator'
-    :'FireSector Admin';
+    :'FireSector District Administrator';
 
   $('welcome').textContent=`Welcome, ${signedInDisplayName}.`;
-  $('districtCount').textContent=String(districts.length);
+  $('districtCount').textContent=admin.is_super_admin?'All':String(districts.length);
+
+  if($('manageDistrictsBtn')) $('manageDistrictsBtn').disabled=!admin.is_super_admin;
+  if($('districtsNav')) $('districtsNav').disabled=!admin.is_super_admin;
 
   const sel=$('districtSelect');
   sel.innerHTML='';
@@ -314,7 +319,7 @@ function selectedArea(){
 
   return {
     id:option?.value||'',
-    name:option?.textContent||'Area'
+    name:option?.textContent||'District'
   };
 }
 
@@ -1170,7 +1175,7 @@ function openTempAccessWorkspace(){
 
   if(!area.id){
     alert(
-      'Select an area first.'
+      'Select a district first.'
     );
     return;
   }
@@ -1202,6 +1207,29 @@ function closeTempAccessWorkspace(){
   $('tempMapPickerOverlay')?.classList.add('hidden');
   tempPickerOriginalLocation=null;
   setTempAccessView(false);
+}
+
+function syncTempMapPresentation(){
+  const overlay=$('tempMapPickerOverlay');
+  const radiusFields=$('radiusFields');
+  if(!overlay || !radiusFields) return;
+
+  const desktop=!window.matchMedia('(max-width: 600px)').matches;
+  const radius=$('tempAccessScope')?.value==='radius';
+
+  if(desktop){
+    if(overlay.parentElement!==radiusFields){
+      radiusFields.appendChild(overlay);
+    }
+    overlay.classList.add('embedded-temp-map');
+    overlay.classList.toggle('hidden',!radius);
+  }else{
+    if(overlay.parentElement!==document.body){
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.remove('embedded-temp-map');
+    overlay.classList.add('hidden');
+  }
 }
 
 function syncTempValidityPlacement(){
@@ -1339,6 +1367,11 @@ function initialiseTemporaryAccess(){
       }
     );
 
+  window.addEventListener('resize',()=>{
+    syncTempMapPresentation();
+    if($('tempAccessScope')?.value==='radius') requestAnimationFrame(renderTempMap);
+  });
+
   $('tempAccessScope')
     .addEventListener(
       'change',
@@ -1355,6 +1388,7 @@ function initialiseTemporaryAccess(){
           );
 
         syncTempValidityPlacement();
+        syncTempMapPresentation();
 
         if(radius){
           requestAnimationFrame(
@@ -1393,6 +1427,7 @@ function initialiseTemporaryAccess(){
   $('tempCoordinates').addEventListener('blur',applyTypedTempCoordinates);
 
   $('openTempMapPicker').addEventListener('click',()=>{
+    if(!window.matchMedia('(max-width: 600px)').matches) return;
     tempPickerOriginalLocation=selectedTempLocation
       ?{...selectedTempLocation}
       :null;
@@ -1747,7 +1782,7 @@ function initialiseTemporaryAccess(){
           'FireSector Temporary Access',
           '',
           `Access Code: ${access.access_code}`,
-          `Area: ${scope}`,
+          `District: ${scope}`,
           `Valid until: ${new Date(access.expires_at).toLocaleString()}`,
           '',
           shareLink
@@ -2343,6 +2378,34 @@ function initialiseIncidentControls(){
   );
 }
 
+
+// ============================================================
+// V020 - DISTRICT MANAGEMENT SHELL (MASTER ADMIN ONLY)
+// ============================================================
+function setDistrictsView(open){
+  if(!$('districtsWorkspace')) return;
+  if(!open){
+    $('districtsWorkspace').classList.add('hidden');
+    $('dashboardHome').classList.remove('hidden');
+    document.querySelectorAll('nav .nav').forEach(item=>item.classList.remove('active'));
+    $('dashboardNav').classList.add('active');
+    return;
+  }
+  if(!currentAdminIsMaster) return;
+  $('dashboardHome').classList.add('hidden');
+  $('tempAccessWorkspace').classList.add('hidden');
+  $('mapDataWorkspace').classList.add('hidden');
+  $('districtsWorkspace').classList.remove('hidden');
+  document.querySelectorAll('nav .nav').forEach(item=>item.classList.remove('active'));
+  $('districtsNav').classList.add('active');
+}
+
+function initialiseDistrictManagement(){
+  $('manageDistrictsBtn')?.addEventListener('click',()=>setDistrictsView(true));
+  $('districtsNav')?.addEventListener('click',()=>setDistrictsView(true));
+  $('closeDistricts')?.addEventListener('click',()=>setDistrictsView(false));
+}
+
 // ============================================================
 // V016 - MAP DATA WORKSPACE
 // ============================================================
@@ -2373,6 +2436,7 @@ function setMapDataView(open){
 
   $('dashboardHome').classList.add('hidden');
   $('tempAccessWorkspace').classList.add('hidden');
+  $('districtsWorkspace')?.classList.add('hidden');
   $('mapDataWorkspace').classList.remove('hidden');
 
   document
@@ -2413,6 +2477,7 @@ function mapDataTypeLabel(type){
 }
 
 const WATER_POINT_TYPES=[
+  'Unknown',
   'Tank',
   'Cement Dam / Reservoir',
   'Earth Dam',
@@ -2440,6 +2505,7 @@ const WATER_AVAILABILITY_OPTIONS=[
 ];
 
 const GATE_TYPE_OPTIONS=[
+  'Unknown',
   'Main Entrance',
   'Farm Gate',
   'Cattle Gate',
@@ -2619,7 +2685,7 @@ async function openMapDataWorkspace(){
   const area=selectedArea();
 
   if(!area.id){
-    window.alert('Select an area first.');
+    window.alert('Select a district first.');
     return;
   }
 
@@ -2758,7 +2824,7 @@ function updateMapDataIncidentState(){
       `Active incident • ${Number.isFinite(radius)?radius:'—'} km radius • Fire Points disappear when access ends.`;
   }else{
     note.textContent=
-      'Active incident • Entire current area • Fire Points disappear when access ends.';
+      'Active incident • Entire current district • Fire Points disappear when access ends.';
   }
 }
 
@@ -2789,7 +2855,7 @@ function renderMapDataItems(){
     empty.className='mapdata-empty';
     empty.textContent=query
       ?'No markers match that farm name.'
-      :'No Map Data has been added for this Area yet.';
+      :'No Map Data has been added for this District yet.';
     container.replaceChildren(empty);
     return;
   }
@@ -3016,7 +3082,7 @@ function updateMapDataEditorFields(item=null){
     fillSelectOptions(
       $('mapDataSubtype'),
       WATER_POINT_TYPES,
-      item?.subtype||'Tank'
+      item?.subtype||'Unknown'
     );
     fillSelectOptions(
       $('mapDataAvailability'),
@@ -3034,7 +3100,7 @@ function updateMapDataEditorFields(item=null){
     fillSelectOptions(
       $('mapDataSubtype'),
       GATE_TYPE_OPTIONS,
-      item?.subtype||'Farm Gate'
+      item?.subtype||'Unknown'
     );
   }else if(isLandmark){
     $('mapDataStatusLabel').textContent='Visibility';
@@ -3044,7 +3110,7 @@ function updateMapDataEditorFields(item=null){
       LANDMARK_VISIBILITY_OPTIONS,
       item?.status||'Unknown'
     );
-    $('mapDataSubtypeText').value=item?.subtype||'';
+    $('mapDataSubtypeText').value=item?.subtype||'Not Set';
   }
 }
 
@@ -3065,12 +3131,11 @@ function openMapDataEditor(type,item=null){
   mapDataSelectedLocation=null;
   $('mapDataListView').classList.add('hidden');
   $('mapDataEditor').classList.remove('hidden');
-  $('mapDataEditorKicker').textContent=type==='fire'?'INCIDENT FIRE POINT':'AREA MAP DATA';
-  $('mapDataEditorTitle').textContent=
-    `${item?'Edit':'Add'} ${mapDataTypeLabel(type)}`;
+  $('mapDataEditorKicker').textContent=type==='fire'?'INCIDENT FIRE POINT':'DISTRICT MAP DATA';
+  $('mapDataEditorTitle').textContent=item?'Edit Marker':'Add Marker';
 
   $('mapDataType').value=type;
-  $('mapDataType').disabled=true;
+  $('mapDataType').disabled=Boolean(item);
   $('mapDataName').value=item?.name||'';
   $('mapDataNotes').value=item?.notes||'';
   $('mapDataEditorError').textContent='';
@@ -3120,6 +3185,12 @@ async function saveCurrentMapDataItem(){
     return;
   }
 
+  const markerName=$('mapDataName').value.trim();
+  if(!markerName){
+    showMapDataEditorError('Name is required.');
+    return;
+  }
+
   const typed=parseCoordinates($('mapDataCoordinates').value);
   if(typed){
     mapDataSelectedLocation=typed;
@@ -3149,7 +3220,7 @@ async function saveCurrentMapDataItem(){
         'save_firesector_fire_point',
         {
           p_access_code_id:mapDataActiveAccess.access_code_id,
-          p_name:$('mapDataName').value.trim(),
+          p_name:markerName,
           p_latitude:mapDataSelectedLocation.lat,
           p_longitude:mapDataSelectedLocation.lon,
           p_notes:$('mapDataNotes').value.trim(),
@@ -3162,7 +3233,7 @@ async function saveCurrentMapDataItem(){
         {
           p_district_id:area.id,
           p_marker_type:type,
-          p_name:$('mapDataName').value.trim(),
+          p_name:markerName,
           p_latitude:mapDataSelectedLocation.lat,
           p_longitude:mapDataSelectedLocation.lon,
           p_status:$('mapDataStatus').value.trim(),
@@ -3327,7 +3398,7 @@ function initialiseMapDataMap(){
 
     mapDataMap.dragging=false;
 
-    if(!mapDataMap.moved && mapDataEditing && isMapDataLocationPickerOpen()){
+    if(!mapDataMap.moved && mapDataEditing && (!window.matchMedia('(max-width: 600px)').matches || isMapDataLocationPickerOpen())){
       setMapDataSelectedLocation(
         mapDataPointFromEvent(event)
       );
@@ -3370,14 +3441,23 @@ function initialiseMapData(){
   $('refreshMapData').addEventListener('click',()=>refreshMapData());
   $('dashboardNav').addEventListener('click',closeMapDataWorkspace);
 
-  $('addWaterPoint').addEventListener('click',()=>openMapDataEditor('water'));
-  $('addGate').addEventListener('click',()=>openMapDataEditor('gate'));
-  $('addLandmark').addEventListener('click',()=>openMapDataEditor('landmark'));
-  $('addFirePoint').addEventListener('click',()=>openMapDataEditor('fire'));
-  $('mobileAddWaterPoint').addEventListener('click',()=>openMapDataEditor('water'));
-  $('mobileAddGate').addEventListener('click',()=>openMapDataEditor('gate'));
-  $('mobileAddLandmark').addEventListener('click',()=>openMapDataEditor('landmark'));
-  $('mobileAddFirePoint').addEventListener('click',()=>openMapDataEditor('fire'));
+  $('addMarker').addEventListener('click',()=>openMapDataEditor('water'));
+  $('mobileAddMarker').addEventListener('click',()=>openMapDataEditor('water'));
+
+  $('mapDataType').addEventListener('change',()=>{
+    const nextType=$('mapDataType').value;
+    if(nextType==='fire' && !mapDataActiveAccess){
+      window.alert('Create Temporary Access before adding Fire Points.');
+      $('mapDataType').value=mapDataEditing?.markerType||'water';
+      return;
+    }
+    if(mapDataEditing){
+      mapDataEditing.markerType=nextType;
+      mapDataEditing.kind=nextType==='fire'?'fire':'permanent';
+    }
+    $('mapDataEditorKicker').textContent=nextType==='fire'?'INCIDENT FIRE POINT':'DISTRICT MAP DATA';
+    updateMapDataEditorFields();
+  });
 
   $('mapDataFarmSearch').addEventListener('input',event=>{
     mapDataFarmSearchQuery=event.target.value||'';
@@ -3605,5 +3685,6 @@ window.addEventListener('pageshow',event=>{
 initialiseFireSectorOpenBridge();
 initialiseTemporaryAccess();
 initialiseIncidentControls();
+initialiseDistrictManagement();
 initialiseMapData();
 startup();
