@@ -1,4 +1,4 @@
-/* FireSector Admin app.js V020 */
+/* FireSector Admin app.js V021 */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
@@ -1099,6 +1099,10 @@ function setTempAccessView(open){
     ?.classList
     .add('hidden');
 
+  $('districtsWorkspace')
+    ?.classList
+    .add('hidden');
+
   document
     .querySelectorAll(
       'nav .nav'
@@ -1124,10 +1128,15 @@ function setTempAccessView(open){
 function resetTempAccessForm(){
   const area=selectedArea();
 
-  $('tempAccessWorkspaceTitle').textContent='Create Temporary Access';
+  $('tempAccessWorkspaceTitle').textContent='Grant Responder Access';
 
   $('tempAccessAreaLabel')
     .textContent=area.name;
+
+  if($('tempAccessEntireDistrictOption')){
+    $('tempAccessEntireDistrictOption').textContent=
+      `Entire district (${area.name||'Current district'})`;
+  }
 
   $('tempAccessScope')
     .value='district';
@@ -1197,6 +1206,7 @@ function openTempAccessWorkspace(){
 
   resetTempAccessForm();
   setTempAccessView(true);
+  syncTempMapPresentation();
 
   requestAnimationFrame(
     renderTempMap
@@ -1211,18 +1221,17 @@ function closeTempAccessWorkspace(){
 
 function syncTempMapPresentation(){
   const overlay=$('tempMapPickerOverlay');
-  const radiusFields=$('radiusFields');
-  if(!overlay || !radiusFields) return;
+  const desktopSlot=$('tempAccessDesktopMapSlot');
+  if(!overlay || !desktopSlot) return;
 
   const desktop=!window.matchMedia('(max-width: 600px)').matches;
-  const radius=$('tempAccessScope')?.value==='radius';
 
   if(desktop){
-    if(overlay.parentElement!==radiusFields){
-      radiusFields.appendChild(overlay);
+    if(overlay.parentElement!==desktopSlot){
+      desktopSlot.appendChild(overlay);
     }
     overlay.classList.add('embedded-temp-map');
-    overlay.classList.toggle('hidden',!radius);
+    overlay.classList.remove('hidden');
   }else{
     if(overlay.parentElement!==document.body){
       document.body.appendChild(overlay);
@@ -1270,6 +1279,8 @@ function initialiseTemporaryAccess(){
     'closeTempAccess',
     'cancelTempAccess',
     'tempAccessScope',
+    'tempAccessEntireDistrictOption',
+    'tempAccessDesktopMapSlot',
     'radiusFields',
     'coordinateMap',
     'mapTiles',
@@ -1369,7 +1380,7 @@ function initialiseTemporaryAccess(){
 
   window.addEventListener('resize',()=>{
     syncTempMapPresentation();
-    if($('tempAccessScope')?.value==='radius') requestAnimationFrame(renderTempMap);
+    if(!window.matchMedia('(max-width: 600px)').matches || $('tempAccessScope')?.value==='radius') requestAnimationFrame(renderTempMap);
   });
 
   $('tempAccessScope')
@@ -1687,7 +1698,7 @@ function initialiseTemporaryAccess(){
         }finally{
           button.disabled=false;
           button.textContent=
-            'Create Temporary Access';
+            'Grant Responder Access';
         }
       }
     );
@@ -2404,6 +2415,7 @@ function initialiseDistrictManagement(){
   $('manageDistrictsBtn')?.addEventListener('click',()=>setDistrictsView(true));
   $('districtsNav')?.addEventListener('click',()=>setDistrictsView(true));
   $('closeDistricts')?.addEventListener('click',()=>setDistrictsView(false));
+  $('dashboardNav')?.addEventListener('click',()=>setDistrictsView(false));
 }
 
 // ============================================================
@@ -2824,7 +2836,7 @@ function updateMapDataIncidentState(){
       `Active incident • ${Number.isFinite(radius)?radius:'—'} km radius • Fire Points disappear when access ends.`;
   }else{
     note.textContent=
-      'Active incident • Entire current district • Fire Points disappear when access ends.';
+      'Active incident • Entire district • Fire Points disappear when access ends.';
   }
 }
 
@@ -3116,7 +3128,7 @@ function updateMapDataEditorFields(item=null){
 
 function openMapDataEditor(type,item=null){
   if(type==='fire' && !mapDataActiveAccess){
-    window.alert('Create Temporary Access before adding Fire Points.');
+    window.alert('Grant Responder Access before adding Fire Points.');
     return;
   }
 
@@ -3447,7 +3459,7 @@ function initialiseMapData(){
   $('mapDataType').addEventListener('change',()=>{
     const nextType=$('mapDataType').value;
     if(nextType==='fire' && !mapDataActiveAccess){
-      window.alert('Create Temporary Access before adding Fire Points.');
+      window.alert('Grant Responder Access before adding Fire Points.');
       $('mapDataType').value=mapDataEditing?.markerType||'water';
       return;
     }
@@ -3457,6 +3469,7 @@ function initialiseMapData(){
     }
     $('mapDataEditorKicker').textContent=nextType==='fire'?'INCIDENT FIRE POINT':'DISTRICT MAP DATA';
     updateMapDataEditorFields();
+    renderMapDataMap();
   });
 
   $('mapDataFarmSearch').addEventListener('input',event=>{

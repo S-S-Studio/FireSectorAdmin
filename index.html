@@ -171,7 +171,7 @@
 
           <div class="primary-cta">
             <button id="createAccessBtn" class="primary-btn" type="button">
-              Create Temporary Access
+              Grant Responder Access
             </button>
           </div>
         </div>
@@ -266,73 +266,84 @@
         <div class="workspace-head">
           <div>
             <button id="closeTempAccess" class="workspace-back" type="button">&lt; Dashboard</button>
-            <h2 id="tempAccessWorkspaceTitle">Create Temporary Access</h2>
+            <h2 id="tempAccessWorkspaceTitle">Grant Responder Access</h2>
             <p id="tempAccessAreaLabel" class="muted"></p>
           </div>
         </div>
 
         <div id="tempAccessFormView" class="workspace-body">
-          <section class="workspace-panel">
-            <div class="form-section first">
-              <label>
-                Access district
-                <select id="tempAccessScope">
-                  <option value="district">Entire current district</option>
-                  <option value="radius">Radius from a location</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="radiusFields" class="radius-workspace hidden">
-              <div class="location-controls">
-                <label>
-                  Coordinates
-                  <input
-                    id="tempCoordinates"
-                    type="text"
-                    autocomplete="off"
-                    placeholder="-28.9624455, 25.7132135"
-                  >
-                </label>
-
-                <button id="openTempMapPicker" class="secondary map-picker-launch" type="button">Set from map</button>
-
-                <div class="location-row">
-                  <button id="useCurrentLocation" class="secondary" type="button">Use Current Location</button>
-                  <span id="locationStatus" class="muted"></span>
+          <div class="tempaccess-layout">
+            <section id="tempAccessMapPanel" class="workspace-panel tempaccess-map-panel">
+              <div class="map-toolbar tempaccess-toolbar">
+                <div>
+                  <strong>District Map</strong>
                 </div>
-
-                <label>
-                  Radius (km)
-                  <input id="tempRadiusKm" type="number" min="0.1" max="500" step="0.1" value="10">
-                </label>
               </div>
-            </div>
+              <div id="tempAccessDesktopMapSlot"></div>
+            </section>
 
-            <div id="tempValidityDefaultSlot">
-              <div id="tempValiditySection" class="form-section temp-validity-section">
+            <aside class="workspace-panel tempaccess-side-panel">
+              <div class="form-section first">
                 <label>
-                  Valid for
-                  <select id="tempValidity">
-                    <option value="60">1 hour</option>
-                    <option value="360">6 hours</option>
-                    <option value="720">12 hours</option>
-                    <option value="1440" selected>24 hours</option>
-                    <option value="2880">48 hours</option>
-                    <option value="4320">72 hours</option>
-                    <option value="10080">7 days</option>
+                  Access district
+                  <select id="tempAccessScope">
+                    <option id="tempAccessEntireDistrictOption" value="district">Entire district</option>
+                    <option value="radius">Radius from a location</option>
                   </select>
                 </label>
               </div>
-            </div>
 
-            <div id="tempAccessError" class="error hidden"></div>
+              <div id="radiusFields" class="radius-workspace hidden">
+                <div class="location-controls">
+                  <label>
+                    Coordinates
+                    <input
+                      id="tempCoordinates"
+                      type="text"
+                      autocomplete="off"
+                      placeholder="-28.9624455, 25.7132135"
+                    >
+                  </label>
 
-            <div class="workspace-actions">
-              <button id="cancelTempAccess" class="secondary" type="button">Cancel</button>
-              <button id="generateTempAccess" type="button">Create Temporary Access</button>
-            </div>
-          </section>
+                  <button id="openTempMapPicker" class="secondary map-picker-launch" type="button">Set from map</button>
+
+                  <div class="location-row">
+                    <button id="useCurrentLocation" class="secondary" type="button">Use Current Location</button>
+                    <span id="locationStatus" class="muted"></span>
+                  </div>
+
+                  <label>
+                    Radius (km)
+                    <input id="tempRadiusKm" type="number" min="0.1" max="500" step="0.1" value="10">
+                  </label>
+                </div>
+              </div>
+
+              <div id="tempValidityDefaultSlot">
+                <div id="tempValiditySection" class="form-section temp-validity-section">
+                  <label>
+                    Valid for
+                    <select id="tempValidity">
+                      <option value="60">1 hour</option>
+                      <option value="360">6 hours</option>
+                      <option value="720">12 hours</option>
+                      <option value="1440" selected>24 hours</option>
+                      <option value="2880">48 hours</option>
+                      <option value="4320">72 hours</option>
+                      <option value="10080">7 days</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div id="tempAccessError" class="error hidden"></div>
+
+              <div class="workspace-actions">
+                <button id="cancelTempAccess" class="secondary" type="button">Cancel</button>
+                <button id="generateTempAccess" type="button">Grant Responder Access</button>
+              </div>
+            </aside>
+          </div>
         </div>
 
         <div id="tempAccessResultView" class="workspace-body hidden">
