@@ -1,8 +1,9 @@
-/* FireSector Admin app.js V021 */
+/* FireSector Admin app.js V022 */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
 const REQUEST_TIMEOUT_MS=10000;
+const CADASTRAL_EDGE_FUNCTION='/functions/v1/firesector-cadastral-sync';
 
 const $=id=>document.getElementById(id);
 const screens=['openFireSector','loading','startupError','login','denied','dashboard'];
@@ -348,7 +349,7 @@ function buildFireSectorShareLink(accessCode){
   const code=normaliseSharedAccessCode(accessCode);
   if(!code)return '';
 
-  const url=new URL('../FireSector_Responder/',window.location.href);
+  const url=new URL('../FireSectorResponder/',window.location.href);
   url.search='';
   url.hash='';
   url.searchParams.set('code',code);
@@ -457,6 +458,13 @@ function renderActiveTemporaryAccess(){
   $('tempAccessActiveState')
     .classList
     .toggle('hidden',!hasActive);
+
+  if($('grantResponderAccessBtn')){
+    $('grantResponderAccessBtn').disabled=hasActive;
+    $('grantResponderAccessBtn').textContent=hasActive
+      ?'Responder Access Active'
+      :'Grant Responder Access';
+  }
 
   if(!hasActive){
     return;
@@ -681,6 +689,34 @@ function worldToLatLon(x,y,zoom){
     lat:clampLatitude(lat),
     lon:normaliseLongitude(lon)
   };
+}
+
+function zoomMapAroundPointer(map,state,newZoom,event){
+  const nextZoom=Math.max(4,Math.min(18,newZoom));
+  if(nextZoom===state.zoom){
+    return false;
+  }
+
+  const rect=map.getBoundingClientRect();
+  const offsetX=event.clientX-rect.left-rect.width/2;
+  const offsetY=event.clientY-rect.top-rect.height/2;
+  const oldCenter=latLonToWorld(state.centerLat,state.centerLon,state.zoom);
+  const anchor=worldToLatLon(
+    oldCenter.x+offsetX,
+    oldCenter.y+offsetY,
+    state.zoom
+  );
+  const anchorAtNewZoom=latLonToWorld(anchor.lat,anchor.lon,nextZoom);
+  const nextCenter=worldToLatLon(
+    anchorAtNewZoom.x-offsetX,
+    anchorAtNewZoom.y-offsetY,
+    nextZoom
+  );
+
+  state.zoom=nextZoom;
+  state.centerLat=nextCenter.lat;
+  state.centerLon=nextCenter.lon;
+  return true;
 }
 
 function parseCoordinates(value){
@@ -1036,21 +1072,14 @@ function initialiseTempMap(){
     event=>{
       event.preventDefault();
 
-      tempMap.zoom=
-        Math.max(
-          4,
-          Math.min(
-            18,
-            tempMap.zoom+
-              (
-                event.deltaY<0
-                  ?1
-                  :-1
-              )
-          )
-        );
-
-      renderTempMap();
+      if(zoomMapAroundPointer(
+        map,
+        tempMap,
+        tempMap.zoom+(event.deltaY<0?1:-1),
+        event
+      )){
+        renderTempMap();
+      }
     },
     {
       passive:false
@@ -1086,6 +1115,38 @@ function initialiseTempMap(){
     );
 }
 
+function setGrantAccessView(open){
+  const workspace=$('grantAccessWorkspace');
+  if(!workspace)return;
+
+  $('dashboardHome').classList.toggle('hidden',open);
+  workspace.classList.toggle('hidden',!open);
+  $('tempAccessWorkspace')?.classList.add('hidden');
+  $('mapDataWorkspace')?.classList.add('hidden');
+  $('districtsWorkspace')?.classList.add('hidden');
+
+  document.querySelectorAll('nav .nav').forEach(item=>item.classList.remove('active'));
+  (open?$('temporaryAccessNav'):$('dashboardNav'))?.classList.add('active');
+}
+
+function openGrantAccessWorkspace(){
+  const area=selectedArea();
+  if(!area.id){
+    window.alert('Select a district first.');
+    return;
+  }
+
+  if($('grantAccessAreaLabel')){
+    $('grantAccessAreaLabel').textContent=area.name;
+  }
+  renderActiveTemporaryAccess();
+  setGrantAccessView(true);
+}
+
+function closeGrantAccessWorkspace(){
+  setGrantAccessView(false);
+}
+
 function setTempAccessView(open){
   $('dashboardHome')
     .classList
@@ -1094,6 +1155,10 @@ function setTempAccessView(open){
   $('tempAccessWorkspace')
     .classList
     .toggle('hidden',!open);
+
+  $('grantAccessWorkspace')
+    ?.classList
+    .add('hidden');
 
   $('mapDataWorkspace')
     ?.classList
@@ -1268,6 +1333,9 @@ function initialiseTemporaryAccess(){
     'dashboardNav',
     'createAccessBtn',
     'temporaryAccessNav',
+    'grantAccessWorkspace',
+    'closeGrantAccess',
+    'grantResponderAccessBtn',
     'temporaryAccessCard',
     'tempAccessCreateState',
     'tempAccessActiveState',
@@ -1341,14 +1409,21 @@ function initialiseTemporaryAccess(){
   $('createAccessBtn')
     .addEventListener(
       'click',
-      openTempAccessWorkspace
+      openGrantAccessWorkspace
     );
 
   $('temporaryAccessNav')
     .addEventListener(
       'click',
-      openTempAccessWorkspace
+      openGrantAccessWorkspace
     );
+
+  $('openGrantAccessFromActive')?.addEventListener('click',openGrantAccessWorkspace);
+  $('closeGrantAccess')?.addEventListener('click',closeGrantAccessWorkspace);
+  $('grantResponderAccessBtn')?.addEventListener('click',()=>{
+    setGrantAccessView(false);
+    openTempAccessWorkspace();
+  });
 
   $('closeTempAccess')
     .addEventListener(
@@ -1373,6 +1448,7 @@ function initialiseTemporaryAccess(){
       'change',
       async()=>{
         closeTempAccessWorkspace();
+        closeGrantAccessWorkspace();
         closeMapDataWorkspace();
         await refreshActiveTemporaryAccess();
       }
@@ -2100,11 +2176,14 @@ function initialiseExtendAccessMap(){
     'wheel',
     event=>{
       event.preventDefault();
-      extendAccessMap.zoom=Math.max(
-        4,
-        Math.min(18,extendAccessMap.zoom+(event.deltaY<0?1:-1))
-      );
-      renderExtendAccessMap();
+      if(zoomMapAroundPointer(
+        map,
+        extendAccessMap,
+        extendAccessMap.zoom+(event.deltaY<0?1:-1),
+        event
+      )){
+        renderExtendAccessMap();
+      }
     },
     {passive:false}
   );
@@ -2405,6 +2484,7 @@ function setDistrictsView(open){
   if(!currentAdminIsMaster) return;
   $('dashboardHome').classList.add('hidden');
   $('tempAccessWorkspace').classList.add('hidden');
+  $('grantAccessWorkspace')?.classList.add('hidden');
   $('mapDataWorkspace').classList.add('hidden');
   $('districtsWorkspace').classList.remove('hidden');
   document.querySelectorAll('nav .nav').forEach(item=>item.classList.remove('active'));
@@ -2448,6 +2528,7 @@ function setMapDataView(open){
 
   $('dashboardHome').classList.add('hidden');
   $('tempAccessWorkspace').classList.add('hidden');
+  $('grantAccessWorkspace')?.classList.add('hidden');
   $('districtsWorkspace')?.classList.add('hidden');
   $('mapDataWorkspace').classList.remove('hidden');
 
@@ -2559,6 +2640,8 @@ function normaliseMapDataItem(item,kind){
     notes:item?.notes||'',
     farm_id:item?.farm_id?String(item.farm_id):'',
     farm_name:item?.farm_name||'',
+    farm_parcel_no:item?.farm_parcel_no??'',
+    farm_portion_no:item?.farm_portion_no??'',
     updated_at:item?.updated_at||null,
     kind
   };
@@ -2603,16 +2686,29 @@ function levenshteinDistance(a,b){
   return previous[b.length];
 }
 
-function farmNameMatchesQuery(farmName,query){
-  const farm=normaliseFarmSearchText(farmName);
+function farmMatchesQuery(farm,query){
   const wanted=normaliseFarmSearchText(query);
-
   if(!wanted)return true;
-  if(!farm)return false;
-  if(farm.includes(wanted) || wanted.includes(farm))return true;
 
+  const values=[
+    farm?.name,
+    farm?.parcel_no,
+    farm?.portion_no,
+    farm?.cadastral_id,
+    farm?.source_key
+  ].filter(Boolean);
+
+  for(const value of values){
+    const normalised=normaliseFarmSearchText(value);
+    if(normalised && (normalised.includes(wanted)||wanted.includes(normalised))){
+      return true;
+    }
+  }
+
+  const farmName=normaliseFarmSearchText(farm?.name);
+  if(!farmName)return false;
   const threshold=wanted.length<=4?1:Math.max(1,Math.floor(wanted.length*0.28));
-  return levenshteinDistance(farm,wanted)<=threshold;
+  return levenshteinDistance(farmName,wanted)<=threshold;
 }
 
 function mapDataVisibleItems(){
@@ -2621,8 +2717,15 @@ function mapDataVisibleItems(){
     return mapDataAllItems();
   }
 
+  const matchingFarmIds=new Set(
+    mapDataFarms
+      .filter(farm=>farmMatchesQuery(farm,query))
+      .map(farm=>farm.id)
+  );
+
   return mapDataPermanentMarkers.filter(item=>
-    farmNameMatchesQuery(item.farm_name,query)
+    (item.farm_id && matchingFarmIds.has(item.farm_id)) ||
+    farmMatchesQuery({name:item.farm_name},query)
   );
 }
 
@@ -2655,32 +2758,6 @@ function fillSelectOptions(select,options,value,{blankLabel=null}={}){
   }else if(blankLabel===null && options.length){
     select.value=options[0];
   }
-}
-
-function populateMapDataFarmSelect(selectedValue=''){
-  const select=$('mapDataFarm');
-  select.innerHTML='';
-
-  const none=document.createElement('option');
-  none.value='';
-  none.textContent='Not linked to a farm';
-  select.appendChild(none);
-
-  for(const farm of mapDataFarms){
-    const option=document.createElement('option');
-    option.value=farm.id;
-    option.textContent=farm.name||'Unnamed farm';
-    select.appendChild(option);
-  }
-
-  if(selectedValue && !mapDataFarms.some(farm=>farm.id===selectedValue)){
-    const existing=document.createElement('option');
-    existing.value=selectedValue;
-    existing.textContent='Linked farm';
-    select.appendChild(existing);
-  }
-
-  select.value=selectedValue||'';
 }
 
 function showMapDataError(message){
@@ -2753,7 +2830,12 @@ async function refreshMapData({quiet=false}={}){
       ?payload.farms
         .map(farm=>({
           id:String(farm?.id||''),
-          name:String(farm?.name||'').trim()
+          name:String(farm?.name||'').trim(),
+          parcel_no:String(farm?.parcel_no??'').trim(),
+          portion_no:String(farm?.portion_no??'').trim(),
+          cadastral_id:String(farm?.cadastral_id||'').trim(),
+          source_key:String(farm?.source_key||'').trim(),
+          is_private_data:farm?.is_private_data===true
         }))
         .filter(farm=>farm.id && farm.name)
       :[];
@@ -2816,19 +2898,11 @@ async function refreshMapData({quiet=false}={}){
 
 function updateMapDataIncidentState(){
   const note=$('mapDataIncidentNote');
-  const fireButtons=[
-    $('addFirePoint'),
-    $('mobileAddFirePoint')
-  ].filter(Boolean);
-
   if(!mapDataActiveAccess){
     note.textContent=
       'No active Temporary Access. Fire Points can only be created during an active incident.';
-    fireButtons.forEach(button=>button.disabled=true);
     return;
   }
-
-  fireButtons.forEach(button=>button.disabled=false);
 
   if(mapDataActiveAccess.scope_type==='radius'){
     const radius=Number(mapDataActiveAccess.radius_km);
@@ -2840,22 +2914,93 @@ function updateMapDataIncidentState(){
   }
 }
 
+function renderMapDataFarmMatches(){
+  const container=$('mapDataFarmMatches');
+  if(!container)return;
+
+  const query=mapDataFarmSearchQuery.trim();
+  if(!query){
+    container.replaceChildren();
+    container.classList.add('hidden');
+    return;
+  }
+
+  const matches=mapDataFarms.filter(farm=>farmMatchesQuery(farm,query)).slice(0,6);
+  if(!matches.length){
+    container.replaceChildren();
+    container.classList.add('hidden');
+    return;
+  }
+
+  const fragment=document.createDocumentFragment();
+  for(const farm of matches){
+    const row=document.createElement('div');
+    row.className=`mapdata-farm-match${farm.is_private_data?' private':''}`;
+
+    const copy=document.createElement('div');
+    copy.className='mapdata-farm-match-copy';
+
+    const name=document.createElement('strong');
+    name.textContent=farm.name||'Unnamed farm';
+
+    const detail=document.createElement('span');
+    const bits=[];
+    if(farm.parcel_no)bits.push(`Parcel ${farm.parcel_no}`);
+    if(farm.portion_no)bits.push(`Portion ${farm.portion_no}`);
+    if(farm.is_private_data)bits.push('Private data unavailable');
+    detail.textContent=bits.join(' • ');
+
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='secondary';
+    button.textContent=farm.is_private_data?'Make available':'Mark private';
+    button.addEventListener('click',async()=>{
+      const next=!farm.is_private_data;
+      const message=next
+        ?`Mark ${farm.name||'this farm'} as private/no-data? Responders will see its red boundary and will not receive Map Data linked to this farm.`
+        :`Make FireSector Map Data for ${farm.name||'this farm'} available to authorised Responders again?`;
+      if(!window.confirm(message))return;
+
+      button.disabled=true;
+      try{
+        await rpcCall('set_firesector_farm_private_status',{
+          p_farm_id:farm.id,
+          p_is_private_data:next
+        });
+        await refreshMapData({quiet:true});
+      }catch(error){
+        window.alert(error.message||'Could not update farm data availability.');
+        button.disabled=false;
+      }
+    });
+
+    copy.append(name,detail);
+    row.append(copy,button);
+    fragment.appendChild(row);
+  }
+
+  container.replaceChildren(fragment);
+  container.classList.remove('hidden');
+}
+
 function renderMapDataItems(){
   const container=$('mapDataItems');
   const items=mapDataVisibleItems();
   const status=$('mapDataSearchStatus');
   const query=mapDataFarmSearchQuery.trim();
 
+  renderMapDataFarmMatches();
+
   if(status){
     if(query){
       const matchingFarms=mapDataFarms
-        .filter(farm=>farmNameMatchesQuery(farm.name,query))
-        .map(farm=>farm.name);
+        .filter(farm=>farmMatchesQuery(farm,query))
+        .map(farm=>farm.parcel_no?`${farm.name} ${farm.parcel_no}`:farm.name);
 
       if(matchingFarms.length){
         status.textContent=`${items.length} marker${items.length===1?'':'s'} • ${matchingFarms.slice(0,3).join(', ')}`;
       }else{
-        status.textContent='No close farm-name match.';
+        status.textContent='No matching farm.';
       }
     }else{
       status.textContent='';
@@ -2866,7 +3011,7 @@ function renderMapDataItems(){
     const empty=document.createElement('div');
     empty.className='mapdata-empty';
     empty.textContent=query
-      ?'No markers match that farm name.'
+      ?'No markers match that farm.'
       :'No Map Data has been added for this District yet.';
     container.replaceChildren(empty);
     return;
@@ -3075,13 +3220,11 @@ function updateMapDataEditorFields(item=null){
   const isGate=type==='gate';
   const isLandmark=type==='landmark';
 
-  $('mapDataFarmField').classList.toggle('hidden',isFire);
   $('mapDataStatusField').classList.toggle('hidden',isFire);
   $('mapDataSubtypeSelectField').classList.toggle('hidden',isFire||isLandmark);
   $('mapDataSubtypeTextField').classList.toggle('hidden',!isLandmark);
   $('mapDataAvailabilityField').classList.toggle('hidden',!isWater);
 
-  populateMapDataFarmSelect(item?.farm_id||'');
 
   if(isWater){
     $('mapDataStatusLabel').textContent='Water quality';
@@ -3192,6 +3335,53 @@ function showMapDataEditorError(message){
   $('mapDataEditorError').classList.remove('hidden');
 }
 
+async function resolveCadastralFarmForMarker(area,point){
+  if(!area?.id || !point){
+    return null;
+  }
+
+  try{
+    const result=await apiFetch(CADASTRAL_EDGE_FUNCTION,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        mode:'lookup',
+        district_id:area.id,
+        latitude:point.lat,
+        longitude:point.lon
+      })
+    });
+
+    const original=mapDataEditing?.original;
+    const unchanged=Boolean(
+      original &&
+      Math.abs(Number(original.latitude)-point.lat)<1e-8 &&
+      Math.abs(Number(original.longitude)-point.lon)<1e-8
+    );
+
+    if(result?.found===false){
+      return unchanged && original?.farm_id
+        ?String(original.farm_id)
+        :null;
+    }
+
+    return result?.farm_id?String(result.farm_id):(unchanged&&original?.farm_id?String(original.farm_id):null);
+  }catch(error){
+    console.warn('Automatic farm lookup could not complete:',error);
+
+    const original=mapDataEditing?.original;
+    const unchanged=Boolean(
+      original &&
+      Math.abs(Number(original.latitude)-point.lat)<1e-8 &&
+      Math.abs(Number(original.longitude)-point.lon)<1e-8
+    );
+
+    return unchanged && original?.farm_id
+      ?String(original.farm_id)
+      :null;
+  }
+}
+
 async function saveCurrentMapDataItem(){
   if(!mapDataEditing){
     return;
@@ -3221,6 +3411,14 @@ async function saveCurrentMapDataItem(){
   button.textContent='Saving…';
   $('mapDataEditorError').textContent='';
   $('mapDataEditorError').classList.add('hidden');
+
+  let resolvedFarmId=null;
+  if(mapDataEditing.kind!=='fire'){
+    resolvedFarmId=await resolveCadastralFarmForMarker(
+      area,
+      mapDataSelectedLocation
+    );
+  }
 
   try{
     if(mapDataEditing.kind==='fire'){
@@ -3255,7 +3453,7 @@ async function saveCurrentMapDataItem(){
           p_availability:type==='water'
             ?$('mapDataAvailability').value.trim()
             :null,
-          p_farm_id:$('mapDataFarm').value||null,
+          p_farm_id:resolvedFarmId,
           p_notes:$('mapDataNotes').value.trim(),
           p_marker_id:mapDataEditing.id
         }
@@ -3421,14 +3619,14 @@ function initialiseMapDataMap(){
     'wheel',
     event=>{
       event.preventDefault();
-      mapDataMap.zoom=Math.max(
-        4,
-        Math.min(
-          18,
-          mapDataMap.zoom+(event.deltaY<0?1:-1)
-        )
-      );
-      renderMapDataMap();
+      if(zoomMapAroundPointer(
+        map,
+        mapDataMap,
+        mapDataMap.zoom+(event.deltaY<0?1:-1),
+        event
+      )){
+        renderMapDataMap();
+      }
     },
     {passive:false}
   );

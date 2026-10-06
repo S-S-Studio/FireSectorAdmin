@@ -131,7 +131,7 @@
       </button>
       <button id="temporaryAccessNav" class="nav" type="button">
         <span class="navSymbol">#</span>
-        <span>Temporary Access</span>
+        <span>Grant Access</span>
       </button>
       <button id="mapDataNav" class="nav" type="button">
         <span class="navSymbol">⌖</span>
@@ -166,12 +166,12 @@
       <section id="temporaryAccessCard" class="primary-action">
         <div id="tempAccessCreateState" class="temp-create-state">
           <div class="primary-copy">
-            <h3>Temporary Access</h3>
+            <h3>Grant Access</h3>
           </div>
 
           <div class="primary-cta">
             <button id="createAccessBtn" class="primary-btn" type="button">
-              Grant Responder Access
+              Grant Access
             </button>
           </div>
         </div>
@@ -179,11 +179,14 @@
         <div id="tempAccessActiveState" class="temp-active-state hidden">
           <div class="active-access-title">
             <div>
-              <h3>Temporary Access</h3>
+              <h3>Responder Access</h3>
               <span class="active-access-badge">Active</span>
             </div>
 
             <div class="active-access-actions">
+              <button id="openGrantAccessFromActive" class="active-access-secondary" type="button">
+                Grant Access
+              </button>
               <button id="shareActiveAccess" class="active-access-secondary" type="button">
                 Share Access Details
               </button>
@@ -260,6 +263,38 @@
         </div>
       </section>
 
+      </section>
+
+      <section id="grantAccessWorkspace" class="temp-workspace hidden">
+        <div class="workspace-head">
+          <div>
+            <button id="closeGrantAccess" class="workspace-back" type="button">&lt; Dashboard</button>
+            <h2>Grant Access</h2>
+            <p id="grantAccessAreaLabel" class="muted"></p>
+          </div>
+        </div>
+
+        <div class="workspace-body">
+          <section class="grant-access-grid">
+            <article class="grant-access-card">
+              <div class="grant-access-icon responder">#</div>
+              <div>
+                <h3>Grant Responder Access</h3>
+                <p>Temporary emergency-map access for responders.</p>
+              </div>
+              <button id="grantResponderAccessBtn" type="button">Grant Responder Access</button>
+            </article>
+
+            <article class="grant-access-card placeholder">
+              <div class="grant-access-icon mapdata">⌖</div>
+              <div>
+                <h3>Grant Map Data Access</h3>
+                <p>Allow a person to add and edit Map Data.</p>
+              </div>
+              <button id="grantMapDataAccessBtn" class="secondary" type="button" disabled>Coming later</button>
+            </article>
+          </section>
+        </div>
       </section>
 
       <section id="tempAccessWorkspace" class="temp-workspace hidden">
@@ -479,11 +514,12 @@
                   id="mapDataFarmSearch"
                   type="search"
                   autocomplete="off"
-                  placeholder="Start typing a farm name…"
+                  placeholder="Farm name or parcel number…"
                 >
                 <small id="mapDataSearchStatus" class="muted"></small>
               </label>
 
+              <div id="mapDataFarmMatches" class="mapdata-farm-matches hidden"></div>
               <div id="mapDataItems" class="mapdata-items"></div>
             </div>
 
@@ -523,13 +559,6 @@
                   <button id="useMapDataCurrentLocation" class="secondary" type="button">Use Current Location</button>
                   <span id="mapDataLocationStatus" class="muted"></span>
                 </div>
-
-                <label id="mapDataFarmField">
-                  <span>Farm</span>
-                  <select id="mapDataFarm">
-                    <option value="">Not linked to a farm</option>
-                  </select>
-                </label>
 
                 <label id="mapDataStatusField">
                   <span id="mapDataStatusLabel">Status</span>
