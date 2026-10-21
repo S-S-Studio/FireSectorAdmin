@@ -1,4 +1,4 @@
-/* FireSector Admin app.js V022 */
+/* FireSector Admin app.js V024 */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
@@ -95,6 +95,7 @@ function clearSession(){
   accessToken=null;
   currentUser=null;
   stopTemporaryAccessLiveSync();
+  stopFireSectorGpsWatch();
 }
 
 async function restSelect(table,query){
@@ -270,6 +271,7 @@ let mapDataPermanentMarkers=[];
 let mapDataFirePoints=[];
 let mapDataActiveAccess=null;
 let mapDataEditing=null;
+let mapDataReadOnly=false;
 let mapDataSelectedLocation=null;
 let mapDataLoadRunning=false;
 let mapDataInitialCenterSet=false;
@@ -1212,6 +1214,9 @@ function resetTempAccessForm(){
 
   $('tempCoordinates').value='';
   $('tempRadiusKm').value='10';
+  $('tempAddFirePoint').checked=false;
+  $('tempLiveTracking').checked=false;
+  syncTempFirePointOptions();
   $('tempValidity').value='1440';
   $('locationStatus').textContent='';
   $('tempAccessError').textContent='';
@@ -1306,6 +1311,19 @@ function syncTempMapPresentation(){
   }
 }
 
+function syncTempFirePointOptions(){
+  const radius=$('tempAccessScope')?.value==='radius';
+  const addFire=Boolean($('tempAddFirePoint')?.checked);
+  $('radiusFields').classList.toggle('hidden',!radius&&!addFire);
+  $('tempRadiusInputField').classList.toggle('hidden',!radius);
+  $('tempLiveTrackingRow').classList.toggle('hidden',!addFire);
+  $('tempFirePointHint').classList.toggle('hidden',!addFire);
+  if(!addFire)$('tempLiveTracking').checked=false;
+  syncTempValidityPlacement();
+  syncTempMapPresentation();
+  requestAnimationFrame(renderTempMap);
+}
+
 function syncTempValidityPlacement(){
   const section=$('tempValiditySection');
   const defaultSlot=$('tempValidityDefaultSlot');
@@ -1362,6 +1380,9 @@ function initialiseTemporaryAccess(){
     'cancelTempMapPicker',
     'confirmTempMapPicker',
     'tempRadiusKm',
+    'tempAddFirePoint',
+    'tempLiveTracking',
+    'tempRadiusInputField',
     'tempValidity',
     'tempValiditySection',
     'tempValidityDefaultSlot',
@@ -1459,31 +1480,17 @@ function initialiseTemporaryAccess(){
     if(!window.matchMedia('(max-width: 600px)').matches || $('tempAccessScope')?.value==='radius') requestAnimationFrame(renderTempMap);
   });
 
-  $('tempAccessScope')
-    .addEventListener(
-      'change',
-      ()=>{
-        const radius=
-          $('tempAccessScope')
-            .value==='radius';
-
-        $('radiusFields')
-          .classList
-          .toggle(
-            'hidden',
-            !radius
-          );
-
-        syncTempValidityPlacement();
-        syncTempMapPresentation();
-
-        if(radius){
-          requestAnimationFrame(
-            renderTempMap
-          );
-        }
-      }
-    );
+  $('tempAccessScope').addEventListener('change',()=>{
+    if($('tempAccessScope').value==='radius')$('tempAddFirePoint').checked=true;
+    syncTempFirePointOptions();
+  });
+  $('tempAddFirePoint').addEventListener('change',syncTempFirePointOptions);
+  $('tempLiveTracking').addEventListener('change',()=>{
+    if($('tempLiveTracking').checked && !navigator.geolocation){
+      $('tempLiveTracking').checked=false;
+      $('locationStatus').textContent='GPS is not available on this device.';
+    }
+  });
 
   $('tempRadiusKm')
     .addEventListener(
@@ -1633,6 +1640,8 @@ function initialiseTemporaryAccess(){
         let latitude=null;
         let longitude=null;
         let radius=null;
+        const createFirePoint=$('tempAddFirePoint').checked;
+        const startLiveTracking=createFirePoint && $('tempLiveTracking').checked;
 
         $('tempAccessError')
           .textContent='';
@@ -1641,7 +1650,7 @@ function initialiseTemporaryAccess(){
           .classList
           .add('hidden');
 
-        if(scope==='radius'){
+        if(scope==='radius'||createFirePoint){
           const typed=
             parseCoordinates(
               $('tempCoordinates')
@@ -1653,22 +1662,17 @@ function initialiseTemporaryAccess(){
               typed;
           }
 
-          radius=
-            Number(
-              $('tempRadiusKm')
-                .value
-            );
+          if(scope==='radius'){
+            radius=Number($('tempRadiusKm').value);
+          }
 
           if(
             !selectedTempLocation||
-            !Number.isFinite(
-              radius
-            )||
-            radius<=0
+            (scope==='radius' && (!Number.isFinite(radius)||radius<=0))
           ){
             $('tempAccessError')
               .textContent=
-                'Select a location on the map or paste coordinates, then enter a valid radius.';
+                scope==='radius'?'Select a location on the map or paste coordinates, then enter a valid radius.':'Select a Fire Point location on the map or enter coordinates.';
 
             $('tempAccessError')
               .classList
@@ -1677,11 +1681,10 @@ function initialiseTemporaryAccess(){
             return;
           }
 
-          latitude=
-            selectedTempLocation.lat;
-
-          longitude=
-            selectedTempLocation.lon;
+          if(scope==='radius'){
+            latitude=selectedTempLocation.lat;
+            longitude=selectedTempLocation.lon;
+          }
         }
 
         const button=
@@ -1707,7 +1710,10 @@ function initialiseTemporaryAccess(){
                 p_radius_km:
                   radius,
                 p_valid_minutes:
-                  validity
+                  validity,
+                // Explicitly prevent backend's default initial Fire Point.
+                // A separate save returns the exact UUID, without duplicates.
+                p_add_as_fire_point:false
               }
             );
 
@@ -1731,6 +1737,34 @@ function initialiseTemporaryAccess(){
             ...created,
             areaName:area.name
           };
+
+          let firePointMessage='';
+          if(createFirePoint){
+            try{
+              const fireId=await rpcCall('save_firesector_fire_point',{
+                p_access_code_id:created.access_code_id,
+                p_name:'Fire',
+                p_latitude:selectedTempLocation.lat,
+                p_longitude:selectedTempLocation.lon,
+                p_notes:null,
+                p_fire_point_id:null
+              });
+              if(!fireId)throw new Error('Fire Point ID was not returned.');
+              if(startLiveTracking){
+                try{
+                  await enableFireSectorLiveTracking(String(fireId));
+                }catch(trackError){
+                  firePointMessage=`Access and Fire Point created. Live Tracking did not start: ${trackError.message}`;
+                }
+              }
+            }catch(fireError){
+              firePointMessage=`Access created, but Fire Point could not be saved: ${fireError.message}. Add it from Map Data; do not generate the access code again.`;
+            }
+          }
+          const resultNote=$('copyStatus');
+          resultNote.textContent=firePointMessage;
+          resultNote.classList.toggle('hidden',!firePointMessage);
+          resultNote.classList.toggle('firesector-access-warning',Boolean(firePointMessage));
 
           $('generatedAccessCode')
             .textContent=
@@ -2643,6 +2677,12 @@ function normaliseMapDataItem(item,kind){
     farm_parcel_no:item?.farm_parcel_no??'',
     farm_portion_no:item?.farm_portion_no??'',
     updated_at:item?.updated_at||null,
+    created_by:item?.created_by||null,
+    is_live_tracking:item?.is_live_tracking===true,
+    tracking_admin_id:item?.tracking_admin_id||null,
+    tracking_admin_name:item?.tracking_admin_name||'',
+    tracking_last_updated_at:item?.tracking_last_updated_at||null,
+    tracking_is_active:item?.tracking_is_active===true,
     kind
   };
 }
@@ -3040,9 +3080,15 @@ function renderMapDataItems(){
 
     const edit=document.createElement('span');
     edit.className='mapdata-item-edit';
-    edit.textContent='Edit';
+    edit.textContent='Info';
 
     copy.append(name,detail);
+    if(item.kind==='fire' && item.is_live_tracking){
+      const tracking=document.createElement('span');
+      tracking.className='firesector-tracking-inline';
+      tracking.textContent=fireSectorTrackingLabel(item);
+      copy.appendChild(tracking);
+    }
     button.append(dot,copy,edit);
 
     button.addEventListener('click',()=>{
@@ -3143,7 +3189,7 @@ function renderMapDataMap(){
     }
     marker.style.left=`${p.x-left}px`;
     marker.style.top=`${p.y-top}px`;
-    marker.title=`${mapDataTypeLabel(item.marker_type)}: ${item.name||'Unnamed'}`;
+    marker.title=`${mapDataTypeLabel(item.marker_type)}: ${item.name||'Unnamed'}${item.kind==='fire'&&item.is_live_tracking?' • '+fireSectorTrackingLabel(item):''}`;
     marker.setAttribute('aria-label',marker.title);
 
     marker.addEventListener('pointerdown',event=>event.stopPropagation());
@@ -3162,7 +3208,7 @@ function renderMapDataMap(){
     markerFragment.appendChild(marker);
   }
 
-  if(mapDataEditing && mapDataSelectedLocation){
+  if(mapDataEditing && !mapDataReadOnly && mapDataSelectedLocation){
     const previewPoint=latLonToWorld(
       mapDataSelectedLocation.lat,
       mapDataSelectedLocation.lon,
@@ -3269,6 +3315,38 @@ function updateMapDataEditorFields(item=null){
   }
 }
 
+function fillMapDataInfo(item){
+  const text=(id,value)=>{$(id).textContent=value==null||value===''?'—':String(value);};
+  text('mapDataInfoType',mapDataTypeLabel(item.marker_type));
+  text('mapDataInfoName',item.name);
+  text('mapDataInfoCoordinates',formatCoordinates({lat:item.latitude,lon:item.longitude}));
+  const isFire=item.kind==='fire';
+  const isLandmark=item.marker_type==='landmark';
+  $('mapDataInfoStatusRow').classList.toggle('hidden',isFire);
+  $('mapDataInfoSubtypeRow').classList.toggle('hidden',isFire);
+  $('mapDataInfoAvailabilityRow').classList.toggle('hidden',item.marker_type!=='water');
+  $('mapDataInfoFarmRow').classList.toggle('hidden',!item.farm_name);
+  text('mapDataInfoStatusLabel',item.marker_type==='water'?'Water quality':item.marker_type==='gate'?'Access':isLandmark?'Visibility':'Status');
+  text('mapDataInfoStatus',item.status);
+  text('mapDataInfoSubtype',item.subtype);
+  text('mapDataInfoAvailability',item.availability);
+  text('mapDataInfoFarm',item.farm_name);
+  text('mapDataInfoNotes',item.notes);
+  $('mapDataInfoTrackingRow').classList.toggle('hidden',!isFire);
+  text('mapDataInfoTracking',fireSectorTrackingLabel(item));
+  const trackingOwner=item.tracking_admin_id===currentUser?.id;
+  $('mapDataInfoEdit').classList.toggle('hidden',Boolean(isFire&&item.is_live_tracking));
+  $('mapDataInfoStopTracking').classList.toggle('hidden',!isFire||!item.is_live_tracking||!trackingOwner);
+}
+
+function setMapDataReadOnly(readOnly){
+  mapDataReadOnly=readOnly;
+  $('mapDataReadOnly').classList.toggle('hidden',!readOnly);
+  $('mapDataEditForm').classList.toggle('hidden',readOnly);
+  $('mapDataEditorTitle').textContent=readOnly?'Marker Information':(mapDataEditing?.id?'Edit Marker':'Add Marker');
+  renderMapDataMap();
+}
+
 function openMapDataEditor(type,item=null){
   if(type==='fire' && !mapDataActiveAccess){
     window.alert('Grant Responder Access before adding Fire Points.');
@@ -3287,7 +3365,7 @@ function openMapDataEditor(type,item=null){
   $('mapDataListView').classList.add('hidden');
   $('mapDataEditor').classList.remove('hidden');
   $('mapDataEditorKicker').textContent=type==='fire'?'INCIDENT FIRE POINT':'DISTRICT MAP DATA';
-  $('mapDataEditorTitle').textContent=item?'Edit Marker':'Add Marker';
+  $('mapDataEditorTitle').textContent=item?'Marker Information':'Add Marker';
 
   $('mapDataType').value=type;
   $('mapDataType').disabled=Boolean(item);
@@ -3301,15 +3379,17 @@ function openMapDataEditor(type,item=null){
   if(item){
     setMapDataSelectedLocation(
       {lat:item.latitude,lon:item.longitude},
-      {recenter:true}
+      {recenter:false}
     );
-    mapDataMap.zoom=Math.max(mapDataMap.zoom,14);
-    renderMapDataMap();
+    fillMapDataInfo(item);
   }else{
     $('mapDataCoordinates').value='';
   }
 
+  $('firesectorEnableTracking').checked=false;
   updateMapDataEditorFields(item);
+  updateFireSectorTrackingEditor();
+  setMapDataReadOnly(Boolean(item));
 }
 
 function closeMapDataEditor(){
@@ -3318,6 +3398,7 @@ function closeMapDataEditor(){
   }
 
   mapDataEditing=null;
+  mapDataReadOnly=false;
   mapDataSelectedLocation=null;
   mapDataPickerOriginalLocation=null;
   $('mapDataMapPanel')?.classList.remove('location-picking');
@@ -3327,6 +3408,7 @@ function closeMapDataEditor(){
   $('mapDataEditorError').textContent='';
   $('mapDataEditorError').classList.add('hidden');
   $('mapDataType').disabled=false;
+  updateFireSectorTrackingEditor();
   renderMapDataMap();
 }
 
@@ -3386,6 +3468,10 @@ async function saveCurrentMapDataItem(){
   if(!mapDataEditing){
     return;
   }
+  if(mapDataEditing.original?.is_live_tracking){
+    showMapDataEditorError('Turn off live tracking before editing this Fire Point.');
+    return;
+  }
 
   const markerName=$('mapDataName').value.trim();
   if(!markerName){
@@ -3405,6 +3491,9 @@ async function saveCurrentMapDataItem(){
 
   const area=selectedArea();
   const type=mapDataEditing.markerType;
+  const enableTracking=mapDataEditing.kind==='fire' &&
+    $('firesectorEnableTracking').checked &&
+    (!mapDataEditing.original?.is_live_tracking);
   const button=$('saveMapDataItem');
 
   button.disabled=true;
@@ -3426,7 +3515,7 @@ async function saveCurrentMapDataItem(){
         throw new Error('Temporary Access is no longer active.');
       }
 
-      await rpcCall(
+      const firePointId=await rpcCall(
         'save_firesector_fire_point',
         {
           p_access_code_id:mapDataActiveAccess.access_code_id,
@@ -3437,6 +3526,21 @@ async function saveCurrentMapDataItem(){
           p_fire_point_id:mapDataEditing.id
         }
       );
+      if(!firePointId)throw new Error('Fire Point save did not return an ID.');
+      if(enableTracking){
+        try{
+          await enableFireSectorLiveTracking(String(firePointId));
+        }catch(error){
+          // The Fire Point is saved already; do not create a duplicate on retry.
+          await refreshMapData({quiet:true});
+          mapDataEditing.id=String(firePointId);
+          const saved=mapDataFirePoints.find(p=>p.id===String(firePointId));
+          if(saved)mapDataEditing.original=saved;
+          $('firesectorEnableTracking').checked=false;
+          updateFireSectorTrackingEditor();
+          throw new Error(`Fire Point saved, but Live Tracking could not start: ${error.message}`);
+        }
+      }
     }else{
       await rpcCall(
         'save_firesector_map_marker',
@@ -3499,6 +3603,7 @@ async function deleteCurrentMapDataItem(){
       );
     }
 
+    if(mapDataEditing?.kind==='fire' && fireSectorGpsFirePointId===mapDataEditing.id)stopFireSectorGpsWatch();
     closeMapDataEditor();
     await refreshMapData();
   }catch(error){
@@ -3608,7 +3713,7 @@ function initialiseMapDataMap(){
 
     mapDataMap.dragging=false;
 
-    if(!mapDataMap.moved && mapDataEditing && (!window.matchMedia('(max-width: 600px)').matches || isMapDataLocationPickerOpen())){
+    if(!mapDataMap.moved && mapDataEditing && !mapDataReadOnly && (!window.matchMedia('(max-width: 600px)').matches || isMapDataLocationPickerOpen())){
       setMapDataSelectedLocation(
         mapDataPointFromEvent(event)
       );
@@ -3642,8 +3747,185 @@ function initialiseMapDataMap(){
   });
 }
 
+
+// FireSector live tracking: GPS ownership is enforced by the database RPCs.
+let fireSectorGpsWatchId=null;
+let fireSectorGpsPollId=null;
+let fireSectorGpsPollBusy=false;
+let fireSectorGpsFirePointId=null;
+let fireSectorGpsBusy=false;
+let fireSectorGpsLastSent=0;
+let fireSectorGpsEpoch=0;
+const FIRESECTOR_GPS_INTERVAL_MS=8000;
+
+function fireSectorTrackingLabel(item){
+  if(!item?.is_live_tracking)return 'Live tracking off';
+  const updated=item.tracking_last_updated_at
+    ?new Date(item.tracking_last_updated_at):null;
+  const recent=updated && Number.isFinite(updated.getTime()) &&
+    Date.now()-updated.getTime()<60000 && Date.now()>=updated.getTime()-5000;
+  const name=item.tracking_admin_name||'Unknown Admin';
+  return `${recent?'Live tracking':'Tracking inactive'} • ${name} • Last GPS: ${updated&&Number.isFinite(updated.getTime())?updated.toLocaleString():'No update'}`;
+}
+
+function stopFireSectorGpsWatch(){
+  fireSectorGpsEpoch++;
+  if(fireSectorGpsWatchId!==null && navigator.geolocation){
+    navigator.geolocation.clearWatch(fireSectorGpsWatchId);
+  }
+  fireSectorGpsWatchId=null;
+  if(fireSectorGpsPollId!==null)clearInterval(fireSectorGpsPollId);
+  fireSectorGpsPollId=null;
+  fireSectorGpsPollBusy=false;
+  fireSectorGpsFirePointId=null;
+  fireSectorGpsLastSent=0;
+  fireSectorGpsBusy=false;
+}
+
+function startFireSectorGpsWatch(id){
+  if(!navigator.geolocation)throw new Error('GPS is unavailable on this device.');
+  if(fireSectorGpsFirePointId===id && fireSectorGpsWatchId!==null)return;
+  stopFireSectorGpsWatch();
+  const epoch=fireSectorGpsEpoch;
+  fireSectorGpsFirePointId=id;
+  const send=async position=>{
+    if(epoch!==fireSectorGpsEpoch || fireSectorGpsFirePointId!==id || !accessToken)return;
+    const now=Date.now();
+    if(fireSectorGpsBusy || now-fireSectorGpsLastSent<FIRESECTOR_GPS_INTERVAL_MS)return;
+    const latitude=position.coords.latitude,longitude=position.coords.longitude;
+    if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;
+    fireSectorGpsBusy=true;
+    fireSectorGpsLastSent=now;
+    try{
+      await rpcCall('update_firesector_live_fire_point',{
+        p_fire_point_id:id,p_latitude:latitude,p_longitude:longitude
+      });
+      if(epoch===fireSectorGpsEpoch){
+        if($('firesectorTrackingStatus') && mapDataEditing?.id===id)
+          $('firesectorTrackingStatus').textContent=`GPS updated: ${new Date().toLocaleTimeString()}`;
+        if($('mapDataWorkspace') && !$('mapDataWorkspace').classList.contains('hidden'))
+          await refreshMapData({quiet:true});
+      }
+    }catch(error){
+      if(epoch!==fireSectorGpsEpoch)return;
+      if($('firesectorTrackingStatus') && mapDataEditing?.id===id)
+        $('firesectorTrackingStatus').textContent=`GPS update failed: ${error.message}`;
+      // Reject an invalid owner/access/radius instead of submitting more updates.
+      if(/not authorised|not authorized|not owner|outside|radius|not active|not found/i.test(error.message||''))
+        stopFireSectorGpsWatch();
+      // Other network failures may recover. The 60-second stale status is server-derived.
+    }finally{if(epoch===fireSectorGpsEpoch)fireSectorGpsBusy=false;}
+  };
+  const handleError=error=>{
+    if(epoch!==fireSectorGpsEpoch)return;
+    if($('firesectorTrackingStatus') && mapDataEditing?.id===id)
+      $('firesectorTrackingStatus').textContent=`GPS: ${error.message}`;
+    if(error.code===1)stopFireSectorGpsWatch();
+  };
+  fireSectorGpsWatchId=navigator.geolocation.watchPosition(send,handleError,
+    {enableHighAccuracy:true,maximumAge:0,timeout:20000});
+  fireSectorGpsPollId=setInterval(()=>{
+    if(epoch!==fireSectorGpsEpoch||!accessToken||fireSectorGpsPollBusy)return;
+    fireSectorGpsPollBusy=true;
+    navigator.geolocation.getCurrentPosition(
+      position=>{fireSectorGpsPollBusy=false;send(position);},
+      error=>{fireSectorGpsPollBusy=false;handleError(error);},
+      {enableHighAccuracy:true,maximumAge:0,timeout:15000}
+    );
+  },20000);
+}
+
+function updateFireSectorTrackingEditor(){
+  const item=mapDataEditing?.original;
+  const isFire=mapDataEditing?.kind==='fire';
+  const active=Boolean(isFire && item?.is_live_tracking);
+  const owner=Boolean(item?.tracking_admin_id && item.tracking_admin_id===currentUser?.id);
+  const creator=Boolean(item?.created_by && item.created_by===currentUser?.id);
+  $('firesectorTrackingPanel').classList.toggle('hidden',!isFire);
+  $('firesectorStartTracking').classList.toggle('hidden',!isFire||!item?.id||active||!creator||Boolean(item?.tracking_admin_id&&!owner));
+  $('firesectorEnableTrackingRow').classList.toggle('hidden',!isFire||active||Boolean(item?.id&&(!creator||(item.tracking_admin_id&&!owner))));
+  $('firesectorStopTracking').classList.toggle('hidden',!active||!owner);
+  $('firesectorTrackingStatus').textContent=active?fireSectorTrackingLabel(item):
+    item?.id?(creator?'Live tracking is off.':'Only the creator can start live tracking.'):
+    'Choose Live Tracking above, then Save to start.';
+  const locked=active;
+  for(const id of ['mapDataName','mapDataCoordinates','mapDataNotes','openMapDataMapPicker','useMapDataCurrentLocation']){
+    $(id).disabled=locked;
+  }
+  $('saveMapDataItem').classList.toggle('hidden',locked);
+  $('deleteMapDataItem').classList.toggle('hidden',!item?.id||(active&&!owner));
+}
+
+async function enableFireSectorLiveTracking(id){
+  if(!navigator.geolocation)throw new Error('GPS is unavailable.');
+  // No tracking or position changes are sent without an actual GPS fix.
+  const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,
+    {enableHighAccuracy:true,maximumAge:0,timeout:20000}));
+  const latitude=position.coords.latitude, longitude=position.coords.longitude;
+  if(!Number.isFinite(latitude)||!Number.isFinite(longitude))throw new Error('GPS returned invalid coordinates.');
+  await rpcCall('start_firesector_live_tracking',{p_fire_point_id:id});
+  try{
+    await rpcCall('update_firesector_live_fire_point',{
+      p_fire_point_id:id,p_latitude:latitude,p_longitude:longitude
+    });
+    startFireSectorGpsWatch(id);
+  }catch(error){
+    await rpcCall('stop_firesector_live_tracking',{
+      p_fire_point_id:id,p_delete_fire_point:false
+    }).catch(()=>{});
+    throw error;
+  }
+}
+
+async function startFireSectorTracking(){
+  const item=mapDataEditing?.original;
+  if(!item?.id || item.created_by!==currentUser?.id ||
+     (item.tracking_admin_id && item.tracking_admin_id!==currentUser?.id))return;
+  const button=$('firesectorStartTracking');
+  button.disabled=true;
+  try{
+    await enableFireSectorLiveTracking(item.id);
+    closeMapDataEditor();
+    await refreshMapData();
+  }catch(error){showMapDataEditorError(error.message||'Could not start tracking.');}
+  finally{button.disabled=false;}
+}
+
+function openFireSectorStopDialog(){
+  const item=mapDataEditing?.original;
+  if(!item?.is_live_tracking || item.tracking_admin_id!==currentUser?.id)return;
+  $('firesectorStopDialog').classList.remove('hidden');
+}
+function closeFireSectorStopDialog(){
+  $('firesectorStopDialog').classList.add('hidden');
+}
+async function finishFireSectorTracking(deletePoint){
+  const item=mapDataEditing?.original;
+  if(!item?.id || item.tracking_admin_id!==currentUser?.id)return;
+  for(const id of ['firesectorKeepPoint','firesectorDeletePoint'])$(id).disabled=true;
+  try{
+    await rpcCall('stop_firesector_live_tracking',{
+      p_fire_point_id:item.id,p_delete_fire_point:deletePoint
+    });
+    if(fireSectorGpsFirePointId===item.id)stopFireSectorGpsWatch();
+    closeFireSectorStopDialog();
+    closeMapDataEditor();
+    await refreshMapData();
+  }catch(error){
+    closeFireSectorStopDialog();
+    showMapDataEditorError(error.message||'Could not stop live tracking.');
+  }finally{
+    for(const id of ['firesectorKeepPoint','firesectorDeletePoint'])$(id).disabled=false;
+  }
+}
+
 function initialiseMapData(){
   initialiseMapDataMap();
+  setInterval(()=>{
+    if(accessToken && !$('mapDataWorkspace').classList.contains('hidden') && !mapDataLoadRunning){
+      refreshMapData({quiet:true});
+    }
+  },8000);
 
   $('mapDataNav').addEventListener('click',openMapDataWorkspace);
   $('manageMapDataBtn').addEventListener('click',openMapDataWorkspace);
@@ -3667,6 +3949,7 @@ function initialiseMapData(){
     }
     $('mapDataEditorKicker').textContent=nextType==='fire'?'INCIDENT FIRE POINT':'DISTRICT MAP DATA';
     updateMapDataEditorFields();
+    updateFireSectorTrackingEditor();
     renderMapDataMap();
   });
 
@@ -3676,10 +3959,21 @@ function initialiseMapData(){
     renderMapDataMap();
   });
 
+  $('mapDataInfoClose').addEventListener('click',closeMapDataEditor);
+  $('mapDataInfoStopTracking').addEventListener('click',openFireSectorStopDialog);
+  $('mapDataInfoEdit').addEventListener('click',()=>{
+    if(mapDataEditing?.original?.is_live_tracking)return;
+    setMapDataReadOnly(false);
+  });
   $('cancelMapDataEdit').addEventListener('click',closeMapDataEditor);
   $('cancelMapDataEditBottom').addEventListener('click',closeMapDataEditor);
   $('saveMapDataItem').addEventListener('click',saveCurrentMapDataItem);
   $('deleteMapDataItem').addEventListener('click',deleteCurrentMapDataItem);
+  $('firesectorStartTracking').addEventListener('click',startFireSectorTracking);
+  $('firesectorStopTracking').addEventListener('click',openFireSectorStopDialog);
+  $('firesectorKeepPoint').addEventListener('click',()=>finishFireSectorTracking(false));
+  $('firesectorDeletePoint').addEventListener('click',()=>finishFireSectorTracking(true));
+  $('firesectorCancelStop').addEventListener('click',closeFireSectorStopDialog);
 
   const applyTypedMapDataCoordinates=()=>{
     const value=$('mapDataCoordinates').value.trim();
