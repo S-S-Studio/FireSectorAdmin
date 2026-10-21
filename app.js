@@ -3757,6 +3757,19 @@ let fireSectorGpsBusy=false;
 let fireSectorGpsLastSent=0;
 let fireSectorGpsEpoch=0;
 const FIRESECTOR_GPS_INTERVAL_MS=8000;
+const FIRESECTOR_GPS_MAX_ACCURACY_M=20;
+const FIRESECTOR_GPS_MIN_MOVE_M=5;
+const FIRESECTOR_GPS_KEEPALIVE_MS=25000;
+let fireSectorGpsSamples=[];
+let fireSectorGpsLastPosition=null;
+let fireSectorGpsLastPositionAt=0;
+function fireSectorDistanceMeters(a,b){
+  const rad=Math.PI/180;
+  const dLat=(b.latitude-a.latitude)*rad,dLon=(b.longitude-a.longitude)*rad;
+  const h=Math.sin(dLat/2)**2+Math.cos(a.latitude*rad)*Math.cos(b.latitude*rad)*Math.sin(dLon/2)**2;
+  return 6371000*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+}
+
 
 function fireSectorTrackingLabel(item){
   if(!item?.is_live_tracking)return 'Live tracking off';
@@ -3780,6 +3793,9 @@ function stopFireSectorGpsWatch(){
   fireSectorGpsFirePointId=null;
   fireSectorGpsLastSent=0;
   fireSectorGpsBusy=false;
+  fireSectorGpsSamples=[];
+  fireSectorGpsLastPosition=null;
+  fireSectorGpsLastPositionAt=0;
 }
 
 function startFireSectorGpsWatch(id){
@@ -3791,16 +3807,32 @@ function startFireSectorGpsWatch(id){
   const send=async position=>{
     if(epoch!==fireSectorGpsEpoch || fireSectorGpsFirePointId!==id || !accessToken)return;
     const now=Date.now();
-    if(fireSectorGpsBusy || now-fireSectorGpsLastSent<FIRESECTOR_GPS_INTERVAL_MS)return;
-    const latitude=position.coords.latitude,longitude=position.coords.longitude;
-    if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;
+    const {latitude,longitude,accuracy}=position.coords;
+    if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||
+       !Number.isFinite(accuracy)||accuracy>FIRESECTOR_GPS_MAX_ACCURACY_M)return;
+    // Drop delayed/cached readings: they can move a fire marker backwards.
+    if(!Number.isFinite(position.timestamp)||now-position.timestamp>15000)return;
+    fireSectorGpsSamples.push({latitude,longitude});
+    if(fireSectorGpsSamples.length>3)fireSectorGpsSamples.shift();
+    const filtered={
+      latitude:fireSectorGpsSamples.reduce((n,p)=>n+p.latitude,0)/fireSectorGpsSamples.length,
+      longitude:fireSectorGpsSamples.reduce((n,p)=>n+p.longitude,0)/fireSectorGpsSamples.length
+    };
+    const moved=fireSectorGpsLastPosition===null||
+      fireSectorDistanceMeters(fireSectorGpsLastPosition,filtered)>=FIRESECTOR_GPS_MIN_MOVE_M;
+    // Send a keepalive even when stationary, so the existing 60s inactivity
+    // status indicates a genuinely connected tracker, not lack of movement.
+    if(!moved && now-fireSectorGpsLastPositionAt<FIRESECTOR_GPS_KEEPALIVE_MS)return;
+    if(fireSectorGpsBusy||now-fireSectorGpsLastSent<FIRESECTOR_GPS_INTERVAL_MS)return;
     fireSectorGpsBusy=true;
     fireSectorGpsLastSent=now;
     try{
       await rpcCall('update_firesector_live_fire_point',{
-        p_fire_point_id:id,p_latitude:latitude,p_longitude:longitude
+        p_fire_point_id:id,p_latitude:filtered.latitude,p_longitude:filtered.longitude
       });
       if(epoch===fireSectorGpsEpoch){
+        fireSectorGpsLastPosition=filtered;
+        fireSectorGpsLastPositionAt=Date.now();
         if($('firesectorTrackingStatus') && mapDataEditing?.id===id)
           $('firesectorTrackingStatus').textContent=`GPS updated: ${new Date().toLocaleTimeString()}`;
         if($('mapDataWorkspace') && !$('mapDataWorkspace').classList.contains('hidden'))
@@ -3810,10 +3842,8 @@ function startFireSectorGpsWatch(id){
       if(epoch!==fireSectorGpsEpoch)return;
       if($('firesectorTrackingStatus') && mapDataEditing?.id===id)
         $('firesectorTrackingStatus').textContent=`GPS update failed: ${error.message}`;
-      // Reject an invalid owner/access/radius instead of submitting more updates.
       if(/not authorised|not authorized|not owner|outside|radius|not active|not found/i.test(error.message||''))
         stopFireSectorGpsWatch();
-      // Other network failures may recover. The 60-second stale status is server-derived.
     }finally{if(epoch===fireSectorGpsEpoch)fireSectorGpsBusy=false;}
   };
   const handleError=error=>{
