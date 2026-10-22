@@ -1,4 +1,4 @@
-const CACHE='firesector-admin-v032-access-card-icons';
+const CACHE='firesector-admin-v033-map-data-redesign';
 const SHELL=[
   './',
   './index.html',

@@ -194,7 +194,7 @@ function populateDashboard(user,admin,districts){
 function updateDistrictContext(){
   const district=selectedArea();
   const role=currentAdminIsMaster?'Master Admin':'District Admin';
-  $('districtContext').textContent=`${district.id?district.name:'No assigned district'} — ${role}`;
+  $('districtContext').textContent=`${role} — ${district.id?district.name:'No assigned district'}`;
 }
 
 function toggleAccountPanel(open){
@@ -1098,6 +1098,7 @@ function initialiseTempMap(){
     }
   );
 
+  map.addEventListener('pointercancel',event=>{mapDataTouchPoints.delete(event.pointerId);mapDataPinch=null;mapDataMap.dragging=false;});
   map.addEventListener(
     'wheel',
     event=>{
@@ -2564,6 +2565,44 @@ function isMapDataWorkspaceOpen(){
   );
 }
 
+let mapDataMode='home';
+function setMapDataMode(mode){
+  mapDataMode=mode;
+  const isHome=mode==='home';
+  const isMap=mode==='map';
+  const isSearch=mode==='search';
+  const isEditor=mode==='editor';
+  $('mapDataWorkspace').classList.toggle('fs-map-view',isMap);
+  $('mapDataWorkspace').classList.toggle('fs-search-view',isSearch);
+  $('mapDataWorkspace').classList.toggle('fs-editor-view',isEditor);
+  $('mapDataHome').classList.toggle('hidden',!isHome);
+  $('mapDataMainHeading').classList.toggle('hidden',!isHome);
+  $('mapDataModeHeader').classList.toggle('hidden',isHome||isEditor);
+  $('mapDataModeTitle').textContent=isSearch?'Search Farms':'View Map';
+  $('mapDataMenuToggle').classList.toggle('hidden',isSearch);
+  const showMenu=isSearch||($('mapDataMenuToggle').getAttribute('aria-expanded')==='true'&&isMap);
+  $('mapDataMenu').classList.toggle('hidden',!showMenu);
+  $('mapDataMapPanel').classList.toggle('hidden',isHome||isSearch||isEditor);
+  $('mapDataEditor').closest('.mapdata-side-panel').classList.toggle('hidden',!isEditor);
+  if(isSearch){$('mapDataMenu').classList.remove('hidden');}
+  if(isMap)requestAnimationFrame(renderMapDataMap);
+  if(isSearch)requestAnimationFrame(()=>$('mapDataFarmSearch').focus());
+}
+function openMapDataHome(){
+  closeMapDataEditor();
+  $('mapDataMenuToggle').setAttribute('aria-expanded','false');
+  setMapDataMode('home');
+}
+function openMapDataFullMap(){
+  $('mapDataMenuToggle').setAttribute('aria-expanded','false');
+  setMapDataMode('map');
+}
+function openMapDataSearch(){
+  $('mapDataMenuToggle').setAttribute('aria-expanded','false');
+  setMapDataMode('search');
+}
+function startMapDataAdd(){openMapDataEditor('water');}
+
 function setMapDataView(open){
   if(!open){
     setTempAccessView(false);
@@ -2575,6 +2614,7 @@ function setMapDataView(open){
   $('grantAccessWorkspace')?.classList.add('hidden');
   $('districtsWorkspace')?.classList.add('hidden');
   $('mapDataWorkspace').classList.remove('hidden');
+  setMapDataMode('home');
 
   document
     .querySelectorAll('nav .nav')
@@ -2590,6 +2630,7 @@ function closeMapDataWorkspace(){
 
   $('mapDataWorkspace').classList.add('hidden');
   closeMapDataEditor();
+  setMapDataMode('home');
 
   if(
     $('dashboardHome').classList.contains('hidden') &&
@@ -2768,9 +2809,11 @@ function mapDataVisibleItems(){
       .map(farm=>farm.id)
   );
 
-  return mapDataPermanentMarkers.filter(item=>
+  return mapDataAllItems().filter(item=>
     (item.farm_id && matchingFarmIds.has(item.farm_id)) ||
-    farmMatchesQuery({name:item.farm_name},query)
+    farmMatchesQuery({name:item.farm_name},query) ||
+    normaliseFarmSearchText(item.name).includes(normaliseFarmSearchText(query)) ||
+    normaliseFarmSearchText(mapDataTypeLabel(item.marker_type)).includes(normaliseFarmSearchText(query))
   );
 }
 
@@ -2830,7 +2873,7 @@ async function openMapDataWorkspace(){
     $('mapDataFarmSearch').value='';
   }
   setMapDataView(true);
-  closeMapDataEditor();
+  openMapDataHome();
 
   await refreshMapData();
 
@@ -2848,12 +2891,6 @@ async function refreshMapData({quiet=false}={}){
   }
 
   mapDataLoadRunning=true;
-  const button=$('refreshMapData');
-
-  if(!quiet){
-    button.disabled=true;
-    button.textContent='Refreshing…';
-  }
 
   try{
     const result=await rpcCall(
@@ -2934,10 +2971,7 @@ async function refreshMapData({quiet=false}={}){
     }
   }finally{
     mapDataLoadRunning=false;
-    if(!quiet){
-      button.disabled=false;
-      button.textContent='Refresh';
-    }
+
   }
 }
 
@@ -3020,6 +3054,21 @@ function renderMapDataFarmMatches(){
     });
 
     copy.append(name,detail);
+    copy.style.cursor='pointer';
+    copy.setAttribute('role','button');
+    copy.tabIndex=0;
+    const locateFarm=()=>{
+      const markers=mapDataAllItems().filter(item=>item.farm_id===farm.id||farmMatchesQuery({name:item.farm_name},farm.name));
+      if(markers.length){
+        mapDataMap.centerLat=markers[0].latitude;
+        mapDataMap.centerLon=markers[0].longitude;
+        openMapDataFullMap();
+      }else{
+        $('mapDataSearchStatus').textContent='No linked marker location is available for this farm.';
+      }
+    };
+    copy.addEventListener('click',locateFarm);
+    copy.addEventListener('keydown',e=>{if(e.key==='Enter')locateFarm();});
     row.append(copy,button);
     fragment.appendChild(row);
   }
@@ -3052,6 +3101,7 @@ function renderMapDataItems(){
     }
   }
 
+  if(!query){container.replaceChildren();return;}
   if(!items.length){
     const empty=document.createElement('div');
     empty.className='mapdata-empty';
@@ -3091,6 +3141,9 @@ function renderMapDataItems(){
     button.append(dot,copy,edit);
 
     button.addEventListener('click',()=>{
+      mapDataMap.centerLat=item.latitude;
+      mapDataMap.centerLon=item.longitude;
+      openMapDataFullMap();
       openMapDataEditor(item.marker_type,item);
     });
 
@@ -3178,7 +3231,7 @@ function renderMapDataMap(){
 
   const markerFragment=document.createDocumentFragment();
 
-  for(const item of mapDataVisibleItems()){
+  for(const item of mapDataAllItems()){
     const p=latLonToWorld(item.latitude,item.longitude,z);
     const marker=document.createElement('button');
     marker.type='button';
@@ -3343,6 +3396,8 @@ function setMapDataReadOnly(readOnly){
 }
 
 function openMapDataEditor(type,item=null){
+  const previousMode=mapDataMode==='editor'?mapDataEditorReturnMode:mapDataMode;
+  mapDataEditorReturnMode=previousMode==='home'?'home':'map';
   if(type==='fire' && !mapDataActiveAccess){
     window.alert('Grant Responder Access before adding Fire Points.');
     return;
@@ -3357,6 +3412,7 @@ function openMapDataEditor(type,item=null){
   };
 
   mapDataSelectedLocation=null;
+  setMapDataMode('editor');
   $('mapDataListView').classList.add('hidden');
   $('mapDataEditor').classList.remove('hidden');
   $('mapDataEditorKicker').textContent=type==='fire'?'INCIDENT FIRE POINT':'DISTRICT MAP DATA';
@@ -3385,6 +3441,7 @@ function openMapDataEditor(type,item=null){
   setMapDataReadOnly(Boolean(item));
 }
 
+let mapDataEditorReturnMode='home';
 function closeMapDataEditor(){
   if(!$('mapDataEditor')){
     return;
@@ -3401,6 +3458,7 @@ function closeMapDataEditor(){
   $('mapDataEditorError').textContent='';
   $('mapDataEditorError').classList.add('hidden');
   $('mapDataType').disabled=false;
+  if(mapDataMode==='editor')setMapDataMode(mapDataEditorReturnMode);
   renderMapDataMap();
 }
 
@@ -3604,6 +3662,7 @@ function openMapDataLocationPicker(){
     mapDataMap.centerLon=mapDataSelectedLocation.lon;
   }
 
+  $('mapDataMapPanel').classList.remove('hidden');
   $('mapDataMapPanel').classList.add('location-picking');
   $('mapDataPickerActions').classList.remove('hidden');
   requestAnimationFrame(renderMapDataMap);
@@ -3617,6 +3676,7 @@ function cancelMapDataLocationPicker(){
     ?formatCoordinates(mapDataSelectedLocation)
     :'';
   $('mapDataMapPanel').classList.remove('location-picking');
+  if(mapDataMode==='editor')$('mapDataMapPanel').classList.add('hidden');
   $('mapDataPickerActions').classList.add('hidden');
   mapDataPickerOriginalLocation=null;
   renderMapDataMap();
@@ -3627,10 +3687,21 @@ function confirmMapDataLocationPicker(){
     return;
   }
   $('mapDataMapPanel').classList.remove('location-picking');
+  if(mapDataMode==='editor')$('mapDataMapPanel').classList.add('hidden');
   $('mapDataPickerActions').classList.add('hidden');
   mapDataPickerOriginalLocation=null;
   $('mapDataLocationStatus').textContent='';
   renderMapDataMap();
+}
+
+const mapDataTouchPoints=new Map();
+let mapDataPinch=null;
+function setMapDataPinch(map){
+  if(mapDataTouchPoints.size<2){mapDataPinch=null;return;}
+  const points=[...mapDataTouchPoints.values()].slice(0,2);
+  const middle={clientX:(points[0].x+points[1].x)/2,clientY:(points[0].y+points[1].y)/2};
+  mapDataPinch={distance:Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y),zoom:mapDataMap.zoom,middle};
+  mapDataMap.dragging=false;
 }
 
 function initialiseMapDataMap(){
@@ -3641,6 +3712,14 @@ function initialiseMapDataMap(){
       return;
     }
 
+    if(event.pointerType==='touch'){
+      mapDataTouchPoints.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      if(mapDataTouchPoints.size>=2){
+        setMapDataPinch(map);
+        map.setPointerCapture(event.pointerId);
+        return;
+      }
+    }
     mapDataMap.dragging=true;
     mapDataMap.moved=false;
     mapDataMap.startX=event.clientX;
@@ -3654,6 +3733,20 @@ function initialiseMapDataMap(){
   });
 
   map.addEventListener('pointermove',event=>{
+    if(mapDataTouchPoints.has(event.pointerId)){
+      mapDataTouchPoints.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      if(mapDataTouchPoints.size>=2 && mapDataPinch){
+        const points=[...mapDataTouchPoints.values()].slice(0,2);
+        const distance=Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+        const center={clientX:(points[0].x+points[1].x)/2,clientY:(points[0].y+points[1].y)/2};
+        if(mapDataPinch.distance>0){
+          const target=Math.max(4,Math.min(18,Math.round(mapDataPinch.zoom+Math.log2(distance/mapDataPinch.distance))));
+          if(target!==mapDataMap.zoom){zoomMapAroundPointer(map,mapDataMap,target,center);}
+          renderMapDataMap();
+        }
+        return;
+      }
+    }
     if(!mapDataMap.dragging){
       return;
     }
@@ -3677,6 +3770,10 @@ function initialiseMapDataMap(){
   });
 
   map.addEventListener('pointerup',event=>{
+    const pinching=Boolean(mapDataPinch);
+    mapDataTouchPoints.delete(event.pointerId);
+    if(mapDataTouchPoints.size<2)mapDataPinch=null;
+    if(pinching){mapDataMap.dragging=false;return;}
     if(!mapDataMap.dragging){
       return;
     }
@@ -3728,8 +3825,21 @@ function initialiseMapData(){
 
   $('mapDataNav').addEventListener('click',openMapDataWorkspace);
   $('manageMapDataBtn').addEventListener('click',openMapDataWorkspace);
-  $('closeMapData').addEventListener('click',closeMapDataWorkspace);
-  $('refreshMapData').addEventListener('click',()=>refreshMapData());
+  $('mapDataHomeView').addEventListener('click',openMapDataFullMap);
+  $('mapDataHomeAdd').addEventListener('click',startMapDataAdd);
+  $('mapDataHomeSearch').addEventListener('click',openMapDataSearch);
+  $('mapDataModeBack').addEventListener('click',openMapDataHome);
+  $('mapDataMenuToggle').addEventListener('click',()=>{
+    const open=$('mapDataMenuToggle').getAttribute('aria-expanded')!=='true';
+    $('mapDataMenuToggle').setAttribute('aria-expanded',String(open));
+    $('mapDataMenu').classList.toggle('hidden',!open);
+    if(open){renderMapDataItems();$('mapDataFarmSearch').focus();}
+  });
+  $('mapDataMenuAdd').addEventListener('click',()=>{
+    $('mapDataMenuToggle').setAttribute('aria-expanded','false');
+    $('mapDataMenu').classList.add('hidden');
+    startMapDataAdd();
+  });
   $('dashboardNav').addEventListener('click',closeMapDataWorkspace);
 
   $('addMarker').addEventListener('click',()=>openMapDataEditor('water'));
@@ -3754,7 +3864,6 @@ function initialiseMapData(){
   $('mapDataFarmSearch').addEventListener('input',event=>{
     mapDataFarmSearchQuery=event.target.value||'';
     renderMapDataItems();
-    renderMapDataMap();
   });
 
   $('mapDataInfoClose').addEventListener('click',closeMapDataEditor);

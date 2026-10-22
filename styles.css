@@ -1051,3 +1051,45 @@ textarea:focus,
 .grant-access-card.responder-card .grant-access-icon.responder img{display:block;width:34px;height:34px;object-fit:contain}
 /* Keep the existing icon backgrounds, change only the line artwork to black. */
 .featureIcon.red,.featureIcon.amber,.grant-access-icon.mapdata{color:#101010}
+
+/* V033 — Mobile-first Map Data redesign. No changes to automatic polling. */
+.brand .fs-top-context{font-size:clamp(12px,2.9vw,16px);line-height:1.23;overflow-wrap:anywhere;font-weight:800}
+.brand.compact{min-width:0;flex:1}
+.fs-mapdata-home{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:960px}
+.fs-mapdata-action{min-width:0}
+.fs-mapdata-action button{width:100%;margin-top:auto}
+.fs-map-mode-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px}
+.fs-map-mode-header strong{font-size:16px}
+.fs-map-mode-header button{min-height:42px}
+.fs-map-menu{position:absolute;top:10px;left:10px;z-index:12;background:#fff;padding:15px;max-height:calc(100% - 20px);overflow:auto;width:min(360px,calc(100% - 20px));box-shadow:0 12px 36px #10182845;border:1px solid #d0d5dd;border-radius:14px}
+.fs-map-menu .mapdata-items{max-height:38vh;overflow:auto}
+.fs-menu-add{width:100%;margin-bottom:12px}
+.fs-map-view .mapdata-layout{display:block;position:relative}
+.fs-map-view .mapdata-map-panel{position:relative;padding:0;border:0;min-height:0;overflow:visible}
+.fs-map-view .mapdata-map-panel>.mapdata-toolbar{display:none}
+.fs-map-view .map-data-map{height:calc(100dvh - 194px);min-height:270px;max-height:none;border-radius:12px;touch-action:none}
+.fs-map-view .mapdata-side-panel{display:none}
+.fs-search-view .mapdata-layout{display:block}
+.fs-search-view .mapdata-map-panel{display:block!important;position:relative;min-height:0;padding:0;border:0;background:none}
+.fs-search-view .fs-map-menu{position:relative;inset:auto;width:100%;max-height:none;box-shadow:none;max-width:820px;margin:0 auto}
+.fs-search-view .mapdata-map-panel>*:not(.fs-map-menu){display:none!important}
+.fs-search-view .mapdata-side-panel{display:none}
+.fs-editor-view .mapdata-layout{display:block}
+.fs-editor-view .mapdata-side-panel{display:block!important;max-width:780px;margin:0 auto}
+.fs-editor-view .mapdata-map-panel:not(.location-picking){display:none!important}
+.fs-editor-view .mapdata-side-panel{min-height:0}
+.fs-editor-view .mapdata-form{width:100%}
+.fs-map-view .mapdata-mobile-type-picker{display:none!important}
+@media(max-width:900px){
+ .fs-mapdata-home{grid-template-columns:1fr}
+ .fs-map-view .map-data-map{height:calc(100dvh - 183px);min-height:250px}
+}
+@media(max-width:600px){
+ header{padding:0 12px}
+ .brand.compact{gap:9px}
+ .brand .fs-top-context{font-size:13px}
+ .logo.small{flex:none;width:36px;height:36px}
+ .fs-map-view .map-data-map{height:calc(100dvh - 178px);min-height:240px}
+ .fs-map-mode-header{padding:6px 0}
+ .fs-map-menu{left:6px;top:6px;width:calc(100% - 12px)}
+}

@@ -114,7 +114,7 @@
   <header>
     <div class="brand compact">
       <div class="logo small">FS</div>
-      <strong>FireSector Admin</strong>
+      <strong id="districtContext" class="fs-top-context" aria-live="polite">Admin — District</strong>
 
     </div>
 
@@ -124,7 +124,7 @@
     </div>
   </header>
 
-  <div id="districtContext" class="district-context" aria-live="polite">District — Admin</div>
+
 
     <section id="accountPanel" class="account-panel hidden" aria-label="Account Management">
       <div class="account-panel-head"><h2>Account Management</h2><button id="closeAccount" class="secondary" type="button" aria-label="Close account">✕</button></div>
@@ -283,8 +283,8 @@
             <article class="grant-access-card placeholder">
               <div class="grant-access-icon mapdata"><svg class="fs-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/></svg></div>
               <div>
-                <h3>Grant Map Data Access</h3>
-                <p>Allow a person to add and edit Map Data.</p>
+                <h3>Grant Temporary Admin Access</h3>
+                <p>Temporary administrator access (coming later).</p>
               </div>
               <button id="grantMapDataAccessBtn" class="secondary" type="button" disabled>Coming later</button>
             </article>
@@ -450,20 +450,46 @@
       </section>
 
       <section id="mapDataWorkspace" class="mapdata-workspace hidden">
-        <div class="workspace-head">
+        <div id="mapDataMainHeading" class="workspace-head">
           <div>
-            <button id="closeMapData" class="workspace-back" type="button">&lt; Dashboard</button>
             <h2>Map Data</h2>
             <p id="mapDataAreaLabel" class="muted"></p>
           </div>
-          <button id="refreshMapData" class="secondary" type="button">Refresh</button>
+        </div>
+        <section id="mapDataHome" class="fs-mapdata-home" aria-label="Map Data actions">
+          <article class="grant-access-card responder-card fs-mapdata-action">
+            <div class="grant-access-icon responder"><svg class="fs-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-12A7 7 0 1 0 5 9c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg></div>
+            <div><h3>Add Marker</h3><p>Add a water point, gate, landmark or incident Fire Point.</p></div>
+            <button id="mapDataHomeAdd" type="button">Add Marker</button>
+          </article>
+          <article class="grant-access-card placeholder fs-mapdata-action">
+            <div class="grant-access-icon mapdata"><svg class="fs-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/></svg></div>
+            <div><h3>View Map</h3><p>See all map markers and Fire Points.</p></div>
+            <button id="mapDataHomeView" class="secondary" type="button">View Map</button>
+          </article>
+          <article class="grant-access-card placeholder fs-mapdata-action">
+            <div class="grant-access-icon mapdata"><svg class="fs-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></div>
+            <div><h3>Search Farms</h3><p>Find a farm and its associated markers.</p></div>
+            <button id="mapDataHomeSearch" class="secondary" type="button">Search Farms</button>
+          </article>
+        </section>
+        <div id="mapDataModeHeader" class="fs-map-mode-header hidden">
+          <button id="mapDataModeBack" class="secondary" type="button" aria-label="Back to Map Data">‹ Back</button>
+          <strong id="mapDataModeTitle">View Map</strong>
+          <button id="mapDataMenuToggle" class="secondary" type="button" aria-label="Map options" aria-expanded="false">☰</button>
         </div>
 
         <div id="mapDataError" class="error hidden"></div>
 
         <div class="mapdata-layout">
           <section id="mapDataMapPanel" class="workspace-panel mapdata-map-panel">
-            <div class="mapdata-mobile-type-picker" aria-label="Add marker">
+            <div id="mapDataMenu" class="fs-map-menu hidden">
+              <button id="mapDataMenuAdd" class="fs-menu-add" type="button">＋ Add Marker</button>
+              <label class="mapdata-search"><span>Search farms / markers</span><input id="mapDataFarmSearch" type="search" autocomplete="off" placeholder="Search farms / markers…"><small id="mapDataSearchStatus" class="muted"></small></label>
+              <div id="mapDataFarmMatches" class="mapdata-farm-matches hidden"></div>
+              <div id="mapDataItems" class="mapdata-items"></div>
+            </div>
+            <div class="mapdata-mobile-type-picker hidden" aria-label="Add marker">
               <button id="mobileAddMarker" class="mapdata-add-marker" type="button">Add Marker</button>
             </div>
 
@@ -499,33 +525,7 @@
           </section>
 
           <aside class="workspace-panel mapdata-side-panel">
-            <div id="mapDataListView">
-              <div class="mapdata-side-head">
-                <div>
-                  <h3>Map Items</h3>
-                  <p id="mapDataIncidentNote" class="muted"></p>
-                </div>
-              </div>
-
-              <div class="mapdata-desktop-add-grid">
-                <button id="addMarker" class="mapdata-add-marker" type="button">Add Marker</button>
-              </div>
-
-              <label class="mapdata-search">
-                <span>Find farm</span>
-                <input
-                  id="mapDataFarmSearch"
-                  type="search"
-                  autocomplete="off"
-                  placeholder="Farm name or parcel number…"
-                >
-                <small id="mapDataSearchStatus" class="muted"></small>
-              </label>
-
-              <div id="mapDataFarmMatches" class="mapdata-farm-matches hidden"></div>
-              <div id="mapDataItems" class="mapdata-items"></div>
-            </div>
-
+            <div id="mapDataListView" class="hidden"><p id="mapDataIncidentNote" class="muted"></p><button id="addMarker" class="hidden" type="button">Add Marker</button></div>
             <div id="mapDataEditor" class="hidden">
               <div class="mapdata-editor-head">
                 <div>
