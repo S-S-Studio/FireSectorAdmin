@@ -1,4 +1,4 @@
-/* FireSector Admin app.js V027 — manual Fire Points only; cache refresh */
+/* FireSector Admin app.js V028 — mobile-first dashboard/account cleanup */
 const SUPABASE_URL='https://gekvveymihsskkuxgxve.supabase.co';
 const SUPABASE_KEY='sb_publishable_nU5RxgAg5gq0Gr53Fb-F_w_Z6_dS3qe';
 const STARTUP_TIMEOUT_MS=8000;
@@ -124,7 +124,15 @@ async function loadAdminContext(user){
     'select=id,code,name,description,is_active&is_active=eq.true&order=name.asc'
   );
 
-  populateDashboard(user,admin,Array.isArray(districts)?districts:[]);
+  let availableDistricts=Array.isArray(districts)?districts:[];
+  if(!admin.is_super_admin){
+    const checked=await Promise.all(availableDistricts.map(async d=>{
+      try{return (await rpcCall('admin_has_district',{p_district_id:d.id}))===true;}
+      catch(error){console.warn('District access lookup failed',d.id,error);return false;}
+    }));
+    availableDistricts=availableDistricts.filter((d,i)=>checked[i]);
+  }
+  populateDashboard(user,admin,availableDistricts);
   show('dashboard');
   await refreshActiveTemporaryAccess();
   startTemporaryAccessLiveSync();
@@ -136,14 +144,16 @@ function populateDashboard(user,admin,districts){
     ?'FireSector Master Administrator'
     :'FireSector District Administrator';
   $('adminEmail').textContent=user.email||'—';
-  $('role').textContent=admin.is_super_admin?'Master Administrator':'District Administrator';
+  toggleAccountPanel(false);
+  $('accountRole').textContent=admin.is_super_admin?'Master Admin':'District Admin';
+  $('masterDistrictPicker').classList.toggle('hidden',!admin.is_super_admin);
 
   const signedInDisplayName=admin.is_super_admin
     ?'FireSector Master Administrator'
     :'FireSector District Administrator';
 
-  $('welcome').textContent=`Welcome, ${signedInDisplayName}.`;
-  $('districtCount').textContent=admin.is_super_admin?'All':String(districts.length);
+  // Dashboard welcome copy intentionally removed.
+  $('districtCount').textContent=admin.is_super_admin?'All districts':(districts.length?districts.map(d=>d.name).join(', '):'No assigned district');
 
   if($('manageDistrictsBtn')) $('manageDistrictsBtn').disabled=!admin.is_super_admin;
   if($('districtsNav')) $('districtsNav').disabled=!admin.is_super_admin;
@@ -157,6 +167,7 @@ function populateDashboard(user,admin,districts){
     o.textContent='No districts assigned';
     sel.appendChild(o);
     sel.disabled=true;
+    updateDistrictContext();
     return;
   }
 
@@ -172,9 +183,24 @@ function populateDashboard(user,admin,districts){
 
   const i=districts.findIndex(d=>d.code==='PETRUSBURG');
   if(i>=0)sel.selectedIndex=i;
+  updateDistrictContext();
 
 }
 
+
+function updateDistrictContext(){
+  const district=selectedArea();
+  const role=currentAdminIsMaster?'Master Admin':'District Admin';
+  $('districtContext').textContent=`${district.id?district.name:'No assigned district'} — ${role}`;
+}
+
+function toggleAccountPanel(open){
+  $('accountPanel').classList.toggle('hidden',!open);
+  $('accountBtn').setAttribute('aria-expanded',String(open));
+}
+$('accountBtn').addEventListener('click',()=>toggleAccountPanel($('accountPanel').classList.contains('hidden')));
+$('closeAccount').addEventListener('click',()=>toggleAccountPanel(false));
+document.querySelectorAll('.shell nav .nav').forEach(el=>el.addEventListener('click',()=>toggleAccountPanel(false)));
 
 const togglePassword=$('togglePassword');
 const passwordEyeOpen=$('passwordEyeOpen');
@@ -249,6 +275,7 @@ $('loginForm').addEventListener('submit',async e=>{
 });
 
 function lockToLogin(){
+  toggleAccountPanel(false);
   clearSession();
   $('password').value='';
   show('login');
@@ -1463,6 +1490,7 @@ function initialiseTemporaryAccess(){
     .addEventListener(
       'change',
       async()=>{
+        updateDistrictContext();
         closeTempAccessWorkspace();
         closeGrantAccessWorkspace();
         closeMapDataWorkspace();
