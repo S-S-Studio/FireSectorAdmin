@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#b42318">
 <meta name="description" content="FireSector Admin">
+<meta name="firesector-build" content="admin-v027-manual-fire-points">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="icon" href="assets/icon-192.png">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=027">
 <title>FireSector Admin</title>
 </head>
 <body>
@@ -333,11 +334,7 @@
                   <input id="tempAddFirePoint" type="checkbox">
                   <span>Set location as Fire Point</span>
                 </label>
-                <label id="tempLiveTrackingRow" class="firesector-checkbox-row hidden">
-                  <input id="tempLiveTracking" type="checkbox">
-                  <span>Start Live Tracking</span>
-                </label>
-                <p id="tempFirePointHint" class="muted hidden">Choose the Fire Point location below. GPS is used only if Live Tracking is enabled.</p>
+                <p id="tempFirePointHint" class="muted hidden">Choose the Fire Point location below.</p>
               </div>
 
               <div id="radiusFields" class="radius-workspace hidden">
@@ -553,11 +550,9 @@
                 <div id="mapDataInfoAvailabilityRow" class="mapdata-info-row"><span>Availability</span><strong id="mapDataInfoAvailability"></strong></div>
                 <div id="mapDataInfoFarmRow" class="mapdata-info-row"><span>Farm</span><strong id="mapDataInfoFarm"></strong></div>
                 <div class="mapdata-info-row"><span>Notes</span><strong id="mapDataInfoNotes"></strong></div>
-                <div id="mapDataInfoTrackingRow" class="mapdata-info-row hidden"><span>Live Tracking</span><strong id="mapDataInfoTracking"></strong></div>
                 <div class="mapdata-editor-actions">
                   <button id="mapDataInfoClose" class="secondary" type="button">Close</button>
                   <span class="action-spacer"></span>
-                  <button id="mapDataInfoStopTracking" class="danger-outline hidden" type="button">Turn Off Live Tracking</button>
                   <button id="mapDataInfoEdit" type="button">Edit</button>
                 </div>
               </div>
@@ -614,17 +609,6 @@
                   Notes
                   <textarea id="mapDataNotes" rows="4"></textarea>
                 </label>
-
-                <div id="firesectorTrackingPanel" class="firesector-tracking-panel hidden">
-                  <strong>Live Fire Point Tracking</strong>
-                  <label id="firesectorEnableTrackingRow" class="firesector-checkbox-row">
-                    <input id="firesectorEnableTracking" type="checkbox">
-                    <span>Start Live Tracking when saving</span>
-                  </label>
-                  <p id="firesectorTrackingStatus" class="muted"></p>
-                  <button id="firesectorStartTracking" class="secondary hidden" type="button">Start Live Tracking</button>
-                  <button id="firesectorStopTracking" class="danger-outline hidden" type="button">Turn Off Live Tracking</button>
-                </div>
                 <div id="mapDataEditorError" class="error hidden"></div>
 
                 <div class="mapdata-editor-actions">
@@ -643,16 +627,6 @@
 </div>
 
 
-<div id="firesectorStopDialog" class="firesector-stop-overlay hidden" role="dialog" aria-modal="true" aria-label="Turn off live tracking">
-  <div class="firesector-stop-card">
-    <h3>Turn Off Live Tracking</h3>
-    <p>What should happen to this Fire Point?</p>
-    <div class="firesector-stop-actions">
-      <button id="firesectorKeepPoint" type="button">Keep Fire Point</button>
-      <button id="firesectorDeletePoint" class="danger-outline" type="button">Delete Fire Point</button>
-      <button id="firesectorCancelStop" class="secondary" type="button">Cancel</button>
-    </div>
-  </div>
 </div>
 
 <div id="tempMapPickerOverlay" class="fullscreen-map-picker hidden" aria-modal="true" role="dialog" aria-label="Set Temporary Access location">
@@ -747,6 +721,6 @@
   </section>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=027"></script>
 </body>
 </html>

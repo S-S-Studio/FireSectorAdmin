@@ -993,14 +993,6 @@ textarea:focus,
 .mapdata-farm-match button{width:auto;min-width:92px;padding:7px 9px;font-size:11px;white-space:nowrap}
 .mapdata-farm-match.private button{border-color:#b42318;color:#b42318;background:#fff}
 
-/* Live Fire Point Tracking */
-.firesector-tracking-panel{padding:12px;border:1px solid #365875;border-radius:10px;margin:12px 0;background:rgba(35,89,131,.12)}
-.firesector-tracking-panel p{margin:8px 0;line-height:1.5}
-.firesector-tracking-inline{display:block;font-size:12px;opacity:.85;margin-top:3px}
-.firesector-stop-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;padding:20px}
-.firesector-stop-overlay.hidden{display:none}
-.firesector-stop-card{width:min(440px,100%);padding:24px;border-radius:14px;background:#172b3d;color:#f3f7fc;border:1px solid #486782;box-shadow:0 20px 70px #0008}
-.firesector-stop-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
 
 /* V024: explicit Fire Point creation and read-only marker information. */
 .access-fire-options{display:grid;gap:9px;margin:12px 0;padding:12px;border:1px solid #d0d5dd;border-radius:10px}
