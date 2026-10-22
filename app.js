@@ -1375,7 +1375,6 @@ function initialiseTemporaryAccess(){
     'createAccessBtn',
     'temporaryAccessNav',
     'grantAccessWorkspace',
-    'closeGrantAccess',
     'grantResponderAccessBtn',
     'temporaryAccessCard',
     'tempAccessCreateState',
@@ -1462,7 +1461,6 @@ function initialiseTemporaryAccess(){
     );
 
   $('openGrantAccessFromActive')?.addEventListener('click',openGrantAccessWorkspace);
-  $('closeGrantAccess')?.addEventListener('click',closeGrantAccessWorkspace);
   $('grantResponderAccessBtn')?.addEventListener('click',()=>{
     setGrantAccessView(false);
     openTempAccessWorkspace();

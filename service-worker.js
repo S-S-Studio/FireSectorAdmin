@@ -1,4 +1,4 @@
-const CACHE='firesector-admin-v029-dashboard-top';
+const CACHE='firesector-admin-v030-grant-access-cleanup';
 const SHELL=[
   './',
   './index.html',

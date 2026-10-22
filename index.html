@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#b42318">
 <meta name="description" content="FireSector Admin">
-<meta name="firesector-build" content="admin-v027-manual-fire-points">
+<meta name="firesector-build" content="admin-v030-grant-access-cleanup">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="icon" href="assets/icon-192.png">
-<link rel="stylesheet" href="styles.css?v=027">
+<link rel="stylesheet" href="styles.css?v=030">
 <title>FireSector Admin</title>
 </head>
 <body>
@@ -263,7 +263,7 @@
       <section id="grantAccessWorkspace" class="temp-workspace hidden">
         <div class="workspace-head">
           <div>
-            <button id="closeGrantAccess" class="workspace-back" type="button">&lt; Dashboard</button>
+            
             <h2>Grant Access</h2>
             <p id="grantAccessAreaLabel" class="muted"></p>
           </div>
@@ -272,7 +272,7 @@
         <div class="workspace-body">
           <section class="grant-access-grid">
             <article class="grant-access-card">
-              <div class="grant-access-icon responder">#</div>
+              <div class="grant-access-icon responder"><svg class="fs-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15h16v3H4zM6 15V11a6 6 0 0 1 12 0v4M12 5V3M9 19h6M8 22h8"/></svg></div>
               <div>
                 <h3>Grant Responder Access</h3>
                 <p>Temporary emergency-map access for responders.</p>
@@ -281,7 +281,7 @@
             </article>
 
             <article class="grant-access-card placeholder">
-              <div class="grant-access-icon mapdata">⌖</div>
+              <div class="grant-access-icon mapdata"><svg class="fs-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/></svg></div>
               <div>
                 <h3>Grant Map Data Access</h3>
                 <p>Allow a person to add and edit Map Data.</p>
