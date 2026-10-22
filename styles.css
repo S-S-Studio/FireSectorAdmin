@@ -1032,3 +1032,7 @@ textarea:focus,
  .navSymbol{width:25px;height:25px}
  .navSymbol .fs-icon{width:23px;height:23px}
 }
+
+/* V029 — Dashboard starts directly below district context on mobile and desktop.
+   The old main margin:auto vertically centered short dashboard content inside the grid. */
+#dashboard .shell > main{margin:0 auto;align-self:start}
