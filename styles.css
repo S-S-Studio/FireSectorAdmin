@@ -1093,3 +1093,37 @@ textarea:focus,
  .fs-map-mode-header{padding:6px 0}
  .fs-map-menu{left:6px;top:6px;width:calc(100% - 12px)}
 }
+
+/* V034 — mobile-first card and contextual navigation corrections */
+.fs-mapdata-home .fs-mapdata-action:first-child{
+  background:#fff;
+  color:var(--text);
+  border:1px solid var(--border);
+  box-shadow:0 10px 28px #10182812;
+}
+.fs-mapdata-home .fs-mapdata-action:first-child h3{color:#101828}
+.fs-mapdata-home .fs-mapdata-action:first-child p{color:#667085}
+.fs-mapdata-home .fs-mapdata-action:first-child>button{background:#b42318;color:#fff;border-color:transparent}
+.fs-mapdata-home .fs-mapdata-action:first-child .grant-access-icon{background:#f1f5f9;color:#101010}
+.fs-account-glyph{color:#858b96}
+.account-toggle{border:0!important;background:transparent!important;box-shadow:none!important}
+.account-toggle .fs-account-glyph{width:27px;height:27px}
+.fs-inner-topbar{height:62px;position:sticky;top:0;z-index:20;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;gap:8px;padding:0 14px;background:#fff;border-bottom:1px solid var(--border)}
+.fs-inner-title{font-size:17px;font-weight:800;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fs-header-icon{display:grid;place-items:center;width:44px;height:44px;padding:0;background:transparent!important;color:#161f2d!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+.fs-header-icon:hover,.fs-header-icon:focus-visible{background:#f3f4f6!important}
+#dashboard.fs-interior-active>header{display:none!important}
+.fs-interior-active .shell{min-height:calc(100dvh - 62px)}
+.fs-interior-active #tempAccessWorkspace>.workspace-head{display:none!important}
+.fs-interior-active .fs-map-mode-header{display:none!important}
+.fs-interior-active .fs-editor-view .mapdata-editor-head{margin-top:0}
+.fs-search-view .fs-menu-add{display:none!important}
+.fs-search-view .fs-map-menu .mapdata-search{margin-top:0}
+@media(max-width:900px){
+ .fs-inner-topbar{padding:0 12px}
+ .fs-interior-active .shell>main{padding-top:10px}
+ .fs-interior-active .fs-map-view .map-data-map{height:calc(100dvh - 62px - 92px - 20px);min-height:240px}
+}
+@media(min-width:901px){
+ .fs-interior-active .fs-map-view .map-data-map{height:calc(100dvh - 62px - 60px);min-height:290px}
+}

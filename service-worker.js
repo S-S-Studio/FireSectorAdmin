@@ -1,4 +1,4 @@
-const CACHE='firesector-admin-v033-map-data-redesign';
+const CACHE='firesector-admin-v034-context-navigation';
 const SHELL=[
   './',
   './index.html',

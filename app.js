@@ -3815,8 +3815,49 @@ function initialiseMapDataMap(){
 }
 
 
+// V034: Global header is for four main destinations only.
+// Interior views share one compact, frameless navigation header.
+function updateFireSectorInnerHeader(){
+  const dashboard=$('dashboard');
+  if(!dashboard || dashboard.classList.contains('hidden'))return;
+  const inAccess=!$('tempAccessWorkspace').classList.contains('hidden');
+  const inMap=!$('mapDataWorkspace').classList.contains('hidden') && mapDataMode!=='home';
+  const isInterior=inAccess||inMap;
+  dashboard.classList.toggle('fs-interior-active',isInterior);
+  $('fsInnerTopbar').classList.toggle('hidden',!isInterior);
+  if(!isInterior)return;
+  const title=inAccess?'Grant Responder Access':mapDataMode==='map'?'':mapDataMode==='search'?'Search Farms':$('mapDataEditorTitle').textContent;
+  $('fsInnerTitle').textContent=title;
+  const showMenu=inMap && mapDataMode==='map';
+  $('fsInnerMenu').classList.toggle('hidden',!showMenu);
+  $('fsInnerMenu').setAttribute('aria-expanded',showMenu?$('mapDataMenuToggle').getAttribute('aria-expanded'):'false');
+}
+function initialiseFireSectorInnerHeader(){
+  $('fsInnerBack').addEventListener('click',()=>{
+    if(!$('tempAccessWorkspace').classList.contains('hidden')){
+      closeTempAccessWorkspace();
+      openGrantAccessWorkspace();
+    }else if(mapDataMode==='editor'){
+      closeMapDataEditor();
+    }else{
+      openMapDataHome();
+    }
+  });
+  $('fsInnerMenu').addEventListener('click',()=>{
+    $('mapDataMenuToggle').click();
+    updateFireSectorInnerHeader();
+  });
+  const observer=new MutationObserver(updateFireSectorInnerHeader);
+  for(const id of ['tempAccessWorkspace','mapDataWorkspace']){
+    observer.observe($(id),{attributes:true,attributeFilter:['class']});
+  }
+  observer.observe($('mapDataEditorTitle'),{childList:true});
+  updateFireSectorInnerHeader();
+}
+
 function initialiseMapData(){
   initialiseMapDataMap();
+  initialiseFireSectorInnerHeader();
   setInterval(()=>{
     if(accessToken && !$('mapDataWorkspace').classList.contains('hidden') && !mapDataLoadRunning){
       refreshMapData({quiet:true});
@@ -3834,6 +3875,7 @@ function initialiseMapData(){
     $('mapDataMenuToggle').setAttribute('aria-expanded',String(open));
     $('mapDataMenu').classList.toggle('hidden',!open);
     if(open){renderMapDataItems();$('mapDataFarmSearch').focus();}
+    updateFireSectorInnerHeader();
   });
   $('mapDataMenuAdd').addEventListener('click',()=>{
     $('mapDataMenuToggle').setAttribute('aria-expanded','false');
