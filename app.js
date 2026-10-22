@@ -156,7 +156,10 @@ function populateDashboard(user,admin,districts){
   $('districtCount').textContent=admin.is_super_admin?'All districts':(districts.length?districts.map(d=>d.name).join(', '):'No assigned district');
 
   if($('manageDistrictsBtn')) $('manageDistrictsBtn').disabled=!admin.is_super_admin;
-  if($('districtsNav')) $('districtsNav').disabled=!admin.is_super_admin;
+  if($('districtsNav')) {
+    $('districtsNav').disabled=!admin.is_super_admin;
+    $('districtsNav').classList.toggle('hidden', !admin.is_super_admin);
+  }
 
   const sel=$('districtSelect');
   sel.innerHTML='';
