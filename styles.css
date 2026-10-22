@@ -1036,3 +1036,18 @@ textarea:focus,
 /* V029 — Dashboard starts directly below district context on mobile and desktop.
    The old main margin:auto vertically centered short dashboard content inside the grid. */
 #dashboard .shell > main{margin:0 auto;align-self:start}
+
+/* V032 — Responder access card: retain exact card geometry, adopt Dashboard Grant Access colors. */
+.grant-access-card.responder-card{
+  background:linear-gradient(135deg,#7a271a,#b42318);
+  color:#fff;
+  border-color:transparent;
+  box-shadow:0 14px 34px #7a271a26;
+}
+.grant-access-card.responder-card h3{color:#fff}
+.grant-access-card.responder-card p{color:rgba(255,255,255,.85)}
+.grant-access-card.responder-card>button{background:#fff;color:#8f1d14;border-color:transparent}
+.grant-access-card.responder-card .grant-access-icon.responder{background:transparent;color:#fff}
+.grant-access-card.responder-card .grant-access-icon.responder img{display:block;width:34px;height:34px;object-fit:contain}
+/* Keep the existing icon backgrounds, change only the line artwork to black. */
+.featureIcon.red,.featureIcon.amber,.grant-access-icon.mapdata{color:#101010}

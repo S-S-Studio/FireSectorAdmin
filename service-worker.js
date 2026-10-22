@@ -1,4 +1,4 @@
-const CACHE='firesector-admin-v031-navigation-cleanup';
+const CACHE='firesector-admin-v032-access-card-icons';
 const SHELL=[
   './',
   './index.html',
@@ -6,7 +6,8 @@ const SHELL=[
   './app.js',
   './manifest.webmanifest',
   './assets/icon-192.png',
-  './assets/icon-512.png'
+  './assets/icon-512.png',
+  './assets/firefighter-helmet-white.png'
 ];
 
 self.addEventListener('install',event=>{
