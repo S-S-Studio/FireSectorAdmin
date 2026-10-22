@@ -1127,3 +1127,74 @@ textarea:focus,
 @media(min-width:901px){
  .fs-interior-active .fs-map-view .map-data-map{height:calc(100dvh - 62px - 60px);min-height:290px}
 }
+
+/* V035 — Map Data cleanup: edge-to-edge map, flat forms, smooth zoom. */
+/* No title in the inner header on Add Marker and Search Farms. */
+.fs-editor-view .mapdata-side-panel,
+.fs-search-view .mapdata-map-panel,
+.fs-search-view .fs-map-menu{
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.fs-editor-view .mapdata-side-panel{padding:0!important;min-height:0!important;max-width:none!important;margin:0!important}
+.fs-editor-view #cancelMapDataEdit{display:none!important}
+.fs-editor-view .mapdata-layout,
+.fs-search-view .mapdata-layout{margin:0!important;padding:0!important}
+.fs-search-view .fs-map-menu{padding:0!important;width:100%!important;max-width:none!important}
+.fs-map-view #mapDataMapPanel{padding:0!important;margin:0!important;background:transparent!important;box-shadow:none!important}
+.fs-map-view .mapdata-layout{
+  position:fixed!important;
+  top:62px!important;
+  left:230px!important;
+  right:0!important;
+  bottom:0!important;
+  margin:0!important;
+  padding:0!important;
+  z-index:6!important;
+  overflow:hidden!important;
+}
+.fs-map-view .mapdata-map-panel,
+.fs-map-view .map-data-map{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  border:0!important;
+  border-radius:0!important;
+}
+.fs-map-view .fs-map-menu{z-index:16;top:8px;left:8px}
+.fs-map-view .fs-map-menu .mapdata-search,
+.fs-map-view .fs-map-menu #mapDataSearchStatus,
+.fs-map-view .fs-map-menu #mapDataFarmMatches,
+.fs-map-view .fs-map-menu #mapDataItems{display:none!important}
+.fs-map-view .fs-map-menu .fs-menu-search,
+.fs-map-view .fs-map-menu .fs-menu-add{display:block;width:100%;margin:0 0 8px}
+.fs-map-view .fs-map-menu .fs-menu-search{margin-bottom:0}
+.fs-search-view .fs-map-menu .fs-menu-search,
+.fs-search-view .fs-map-menu .fs-menu-add{display:none!important}
+.fs-map-view .fs-mapdata-zoom-buttons{display:none!important}
+.fs-map-view .map-data-map{touch-action:none;overscroll-behavior:contain;cursor:grab}
+.fs-map-view .map-data-map:active{cursor:grabbing}
+.fs-inner-topbar{z-index:12}
+@media(max-width:900px){
+ .fs-map-view .mapdata-layout{left:0!important;bottom:var(--fs-map-bottom-nav,78px)!important}
+ .fs-search-view .fs-map-menu{margin:0!important}
+ .fs-editor-view .mapdata-side-panel{padding:0!important}
+}
+
+/* Access Fire Point choice: appear only after a radius location is selected. */
+#tempFireOptionWrap{border:0;background:linear-gradient(135deg,#8c2117,#b42318);color:#fff;border-radius:12px;padding:13px 14px;margin-top:14px;margin-bottom:12px}
+#tempFireOptionWrap .firesector-checkbox-row{color:#fff;display:flex;align-items:center;gap:9px;margin:0;font-weight:700}
+#tempFireOptionWrap input{accent-color:#fff;width:18px;height:18px;flex-shrink:0}
+#tempFireOptionWrap.hidden{display:none!important}
+/* Keep map canvas flush against mobile viewport; overlays scroll independently. */
+.fs-map-view .mapdata-layout{overscroll-behavior:contain}
+.fs-map-view #mapDataMapPanel{overflow:hidden!important}
+.fs-search-view #mapDataMenu{border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}
+@media(max-width:900px){
+ .fs-editor-view .mapdata-side-panel{border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important;padding:0!important}
+ .fs-editor-view #mapDataEditor{background:transparent!important}
+ .fs-search-view #mapDataMapPanel{background:transparent!important}
+}

@@ -813,6 +813,8 @@ function setSelectedTempLocation(
     tempMap.centerLon=point.lon;
   }
 
+  const isRadius=$('tempAccessScope')?.value==='radius';
+  $('tempFireOptionWrap')?.classList.toggle('hidden',!isRadius);
   renderTempMap();
 }
 
@@ -1342,10 +1344,12 @@ function syncTempMapPresentation(){
 
 function syncTempFirePointOptions(){
   const radius=$('tempAccessScope')?.value==='radius';
-  const addFire=Boolean($('tempAddFirePoint')?.checked);
-  $('radiusFields').classList.toggle('hidden',!radius&&!addFire);
+  const hasLocation=Boolean(selectedTempLocation);
+  if(!radius || !hasLocation)$('tempAddFirePoint').checked=false;
+  $('tempFireOptionWrap').classList.toggle('hidden',!radius||!hasLocation);
+  $('radiusFields').classList.toggle('hidden',!radius);
   $('tempRadiusInputField').classList.toggle('hidden',!radius);
-  $('tempFirePointHint').classList.toggle('hidden',!addFire);
+  $('tempFirePointHint').classList.add('hidden');
   syncTempValidityPlacement();
   syncTempMapPresentation();
   requestAnimationFrame(renderTempMap);
@@ -1506,7 +1510,6 @@ function initialiseTemporaryAccess(){
   });
 
   $('tempAccessScope').addEventListener('change',()=>{
-    if($('tempAccessScope').value==='radius')$('tempAddFirePoint').checked=true;
     syncTempFirePointOptions();
   });
   $('tempAddFirePoint').addEventListener('change',syncTempFirePointOptions);
@@ -2073,10 +2076,6 @@ function renderExtendAccessMap(){
 
   const left=center.x-width/2;
   const top=center.y-height/2;
-  const minTileX=Math.floor(left/256);
-  const maxTileX=Math.floor((left+width)/256);
-  const minTileY=Math.floor(top/256);
-  const maxTileY=Math.floor((top+height)/256);
   const tileCount=Math.pow(2,z);
   const fragment=document.createDocumentFragment();
 
@@ -2585,7 +2584,8 @@ function setMapDataMode(mode){
   $('mapDataMapPanel').classList.toggle('hidden',isHome||isSearch||isEditor);
   $('mapDataEditor').closest('.mapdata-side-panel').classList.toggle('hidden',!isEditor);
   if(isSearch){$('mapDataMenu').classList.remove('hidden');}
-  if(isMap)requestAnimationFrame(renderMapDataMap);
+  $('mapDataMenu').classList.toggle('fs-menu-search-mode',isSearch);
+  if(isMap){requestAnimationFrame(renderMapDataMap);requestAnimationFrame(updateMapDataViewport);}
   if(isSearch)requestAnimationFrame(()=>$('mapDataFarmSearch').focus());
 }
 function openMapDataHome(){
@@ -3178,31 +3178,39 @@ function renderMapDataMap(){
 
   const left=center.x-width/2;
   const top=center.y-height/2;
-  const minTileX=Math.floor(left/256);
-  const maxTileX=Math.floor((left+width)/256);
-  const minTileY=Math.floor(top/256);
-  const maxTileY=Math.floor((top+height)/256);
-  const tileCount=Math.pow(2,z);
+  // Render integer OSM tiles scaled to a fractional display zoom.
+  // Reuse image nodes while pinching: otherwise re-creating them each frame flickers.
+  const tileZ=Math.floor(z);
+  const tileScale=Math.pow(2,z-tileZ);
+  const tilePixelSize=256*tileScale;
+  const tileCount=Math.pow(2,tileZ);
+  const firstX=Math.floor(left/tilePixelSize);
+  const lastX=Math.floor((left+width)/tilePixelSize);
+  const firstY=Math.floor(top/tilePixelSize);
+  const lastY=Math.floor((top+height)/tilePixelSize);
+  const tileNodes=new Map([...tiles.children].map(img=>[img.dataset.tileKey,img]));
   const tileFragment=document.createDocumentFragment();
-
-  for(let ty=minTileY;ty<=maxTileY;ty++){
-    if(ty<0 || ty>=tileCount){
-      continue;
-    }
-
-    for(let tx=minTileX;tx<=maxTileX;tx++){
+  for(let ty=firstY;ty<=lastY;ty++){
+    if(ty<0 || ty>=tileCount)continue;
+    for(let tx=firstX;tx<=lastX;tx++){
       const wrappedX=((tx%tileCount)+tileCount)%tileCount;
-      const img=document.createElement('img');
-      img.className='map-tile';
-      img.alt='';
-      img.draggable=false;
-      img.src=`https://tile.openstreetmap.org/${z}/${wrappedX}/${ty}.png`;
-      img.style.left=`${tx*256-left}px`;
-      img.style.top=`${ty*256-top}px`;
+      const key=`${tileZ}/${wrappedX}/${ty}`;
+      let img=tileNodes.get(key);
+      if(!img){
+        img=document.createElement('img');
+        img.className='map-tile';
+        img.alt='';
+        img.draggable=false;
+        img.dataset.tileKey=key;
+        img.src=`https://tile.openstreetmap.org/${key}.png`;
+      }
+      img.style.left=`${tx*tilePixelSize-left}px`;
+      img.style.top=`${ty*tilePixelSize-top}px`;
+      img.style.width=`${tilePixelSize+0.5}px`;
+      img.style.height=`${tilePixelSize+0.5}px`;
       tileFragment.appendChild(img);
     }
   }
-
   tiles.replaceChildren(tileFragment);
 
   const radiusOverlay=$('mapDataRadiusOverlay');
@@ -3694,6 +3702,14 @@ function confirmMapDataLocationPicker(){
   renderMapDataMap();
 }
 
+let mapDataRenderFrame=0;
+function scheduleMapDataRender(){
+  if(mapDataRenderFrame)return;
+  mapDataRenderFrame=requestAnimationFrame(()=>{
+    mapDataRenderFrame=0;
+    renderMapDataMap();
+  });
+}
 const mapDataTouchPoints=new Map();
 let mapDataPinch=null;
 function setMapDataPinch(map){
@@ -3740,9 +3756,11 @@ function initialiseMapDataMap(){
         const distance=Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
         const center={clientX:(points[0].x+points[1].x)/2,clientY:(points[0].y+points[1].y)/2};
         if(mapDataPinch.distance>0){
-          const target=Math.max(4,Math.min(18,Math.round(mapDataPinch.zoom+Math.log2(distance/mapDataPinch.distance))));
-          if(target!==mapDataMap.zoom){zoomMapAroundPointer(map,mapDataMap,target,center);}
-          renderMapDataMap();
+          const target=Math.max(4,Math.min(18,mapDataPinch.zoom+Math.log2(distance/mapDataPinch.distance)));
+          if(Math.abs(target-mapDataMap.zoom)>0.002){
+            zoomMapAroundPointer(map,mapDataMap,target,center);
+            scheduleMapDataRender();
+          }
         }
         return;
       }
@@ -3794,7 +3812,7 @@ function initialiseMapDataMap(){
       if(zoomMapAroundPointer(
         map,
         mapDataMap,
-        mapDataMap.zoom+(event.deltaY<0?1:-1),
+        mapDataMap.zoom-Math.sign(event.deltaY)*Math.min(0.35,Math.max(0.06,Math.abs(event.deltaY)*0.004)),
         event
       )){
         renderMapDataMap();
@@ -3826,11 +3844,17 @@ function updateFireSectorInnerHeader(){
   dashboard.classList.toggle('fs-interior-active',isInterior);
   $('fsInnerTopbar').classList.toggle('hidden',!isInterior);
   if(!isInterior)return;
-  const title=inAccess?'Grant Responder Access':mapDataMode==='map'?'':mapDataMode==='search'?'Search Farms':$('mapDataEditorTitle').textContent;
+  const title=inAccess?'Grant Responder Access':'';
   $('fsInnerTitle').textContent=title;
   const showMenu=inMap && mapDataMode==='map';
   $('fsInnerMenu').classList.toggle('hidden',!showMenu);
   $('fsInnerMenu').setAttribute('aria-expanded',showMenu?$('mapDataMenuToggle').getAttribute('aria-expanded'):'false');
+}
+function updateMapDataViewport(){
+  const nav=$('mapDataNav')?.closest('nav');
+  const height=(window.matchMedia('(max-width:900px)').matches && nav)?nav.getBoundingClientRect().height:0;
+  document.documentElement.style.setProperty('--fs-map-bottom-nav',`${height}px`);
+  if(mapDataMode==='map')scheduleMapDataRender();
 }
 function initialiseFireSectorInnerHeader(){
   $('fsInnerBack').addEventListener('click',()=>{
@@ -3852,6 +3876,9 @@ function initialiseFireSectorInnerHeader(){
     observer.observe($(id),{attributes:true,attributeFilter:['class']});
   }
   observer.observe($('mapDataEditorTitle'),{childList:true});
+  window.addEventListener('resize',updateMapDataViewport);
+  if(window.ResizeObserver){new ResizeObserver(updateMapDataViewport).observe($('mapDataNav').closest('nav'));}
+  updateMapDataViewport();
   updateFireSectorInnerHeader();
 }
 
@@ -3874,8 +3901,13 @@ function initialiseMapData(){
     const open=$('mapDataMenuToggle').getAttribute('aria-expanded')!=='true';
     $('mapDataMenuToggle').setAttribute('aria-expanded',String(open));
     $('mapDataMenu').classList.toggle('hidden',!open);
-    if(open){renderMapDataItems();$('mapDataFarmSearch').focus();}
+    // Map menu has navigation actions only; search field lives in Search Farms.
+    if(open)renderMapDataItems();
     updateFireSectorInnerHeader();
+  });
+  $('mapDataMenuSearch').addEventListener('click',()=>{
+    $('mapDataMenuToggle').setAttribute('aria-expanded','false');
+    openMapDataSearch();
   });
   $('mapDataMenuAdd').addEventListener('click',()=>{
     $('mapDataMenuToggle').setAttribute('aria-expanded','false');
