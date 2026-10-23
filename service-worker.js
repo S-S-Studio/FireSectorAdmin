@@ -1,4 +1,4 @@
-const CACHE='firesector-admin-v035-cleanup';
+const CACHE='firesector-admin-v036-quick-fire-edit';
 const SHELL=[
   './',
   './index.html',

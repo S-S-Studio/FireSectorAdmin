@@ -516,10 +516,7 @@ function renderActiveTemporaryAccess(){
       activeTemporaryAccess.expires_at
     );
 
-  $('activeAccessScope').textContent=
-    activeAccessScopeText(
-      activeTemporaryAccess
-    );
+
 }
 
 function tickAdminAccessCountdown(){
@@ -1390,7 +1387,6 @@ function initialiseTemporaryAccess(){
     'activeAccessCreated',
     'activeAccessExpires',
     'activeAccessCountdown',
-    'activeAccessScope',
     'revokeActiveAccess',
     'closeTempAccess',
     'cancelTempAccess',
@@ -2569,7 +2565,7 @@ function setMapDataMode(mode){
   mapDataMode=mode;
   const isHome=mode==='home';
   const isMap=mode==='map';
-  const isSearch=mode==='search';
+  const isSearch=mode==='search'||mode==='edit-list';
   const isEditor=mode==='editor';
   $('mapDataWorkspace').classList.toggle('fs-map-view',isMap);
   $('mapDataWorkspace').classList.toggle('fs-search-view',isSearch);
@@ -2577,7 +2573,7 @@ function setMapDataMode(mode){
   $('mapDataHome').classList.toggle('hidden',!isHome);
   $('mapDataMainHeading').classList.toggle('hidden',!isHome);
   $('mapDataModeHeader').classList.toggle('hidden',isHome||isEditor);
-  $('mapDataModeTitle').textContent=isSearch?'Search Farms':'View Map';
+  $('mapDataModeTitle').textContent=mode==='edit-list'?'Edit Markers':isSearch?'Search Farms':'View Map';
   $('mapDataMenuToggle').classList.toggle('hidden',isSearch);
   const showMenu=isSearch||($('mapDataMenuToggle').getAttribute('aria-expanded')==='true'&&isMap);
   $('mapDataMenu').classList.toggle('hidden',!showMenu);
@@ -2586,7 +2582,7 @@ function setMapDataMode(mode){
   if(isSearch){$('mapDataMenu').classList.remove('hidden');}
   $('mapDataMenu').classList.toggle('fs-menu-search-mode',isSearch);
   if(isMap){requestAnimationFrame(renderMapDataMap);requestAnimationFrame(updateMapDataViewport);}
-  if(isSearch)requestAnimationFrame(()=>$('mapDataFarmSearch').focus());
+  if(isSearch)requestAnimationFrame(()=>{renderMapDataItems();$('mapDataFarmSearch').focus();});
 }
 function openMapDataHome(){
   closeMapDataEditor();
@@ -2600,6 +2596,12 @@ function openMapDataFullMap(){
 function openMapDataSearch(){
   $('mapDataMenuToggle').setAttribute('aria-expanded','false');
   setMapDataMode('search');
+}
+function openMapDataEditList(){
+  $('mapDataFarmSearch').value='';
+  mapDataFarmSearchQuery='';
+  setMapDataMode('edit-list');
+  renderMapDataItems();
 }
 function startMapDataAdd(){openMapDataEditor('water');}
 
@@ -3101,7 +3103,7 @@ function renderMapDataItems(){
     }
   }
 
-  if(!query){container.replaceChildren();return;}
+  if(!query && mapDataMode!=='edit-list'){container.replaceChildren();return;}
   if(!items.length){
     const empty=document.createElement('div');
     empty.className='mapdata-empty';
@@ -3143,7 +3145,7 @@ function renderMapDataItems(){
     button.addEventListener('click',()=>{
       mapDataMap.centerLat=item.latitude;
       mapDataMap.centerLon=item.longitude;
-      openMapDataFullMap();
+      if(mapDataMode!=='edit-list')openMapDataFullMap();
       openMapDataEditor(item.marker_type,item);
     });
 
@@ -3405,7 +3407,7 @@ function setMapDataReadOnly(readOnly){
 
 function openMapDataEditor(type,item=null){
   const previousMode=mapDataMode==='editor'?mapDataEditorReturnMode:mapDataMode;
-  mapDataEditorReturnMode=previousMode==='home'?'home':'map';
+  mapDataEditorReturnMode=previousMode==='home'?'home':previousMode==='edit-list'?'edit-list':'map';
   if(type==='fire' && !mapDataActiveAccess){
     window.alert('Grant Responder Access before adding Fire Points.');
     return;
@@ -3896,6 +3898,13 @@ function initialiseMapData(){
   $('mapDataHomeView').addEventListener('click',openMapDataFullMap);
   $('mapDataHomeAdd').addEventListener('click',startMapDataAdd);
   $('mapDataHomeSearch').addEventListener('click',openMapDataSearch);
+  $('mapDataHomeEdit').addEventListener('click',openMapDataEditList);
+  $('quickAddFirePoint').addEventListener('click',async()=>{
+    if(!activeTemporaryAccess){window.alert('An active Responder Access session is required.');return;}
+    await openMapDataWorkspace();
+    if(!mapDataActiveAccess){window.alert('Unable to load the active session. Please try again.');return;}
+    openMapDataEditor('fire');
+  });
   $('mapDataModeBack').addEventListener('click',openMapDataHome);
   $('mapDataMenuToggle').addEventListener('click',()=>{
     const open=$('mapDataMenuToggle').getAttribute('aria-expanded')!=='true';
